@@ -19,6 +19,10 @@ separación entre piezas para poder recortarlas.
     quepa se coloca a la derecha de la mesa de trabajo y queda seleccionado.
 - Separación entre elementos y margen al borde configurables (por defecto **3 mm**),
   en mm, cm o in.
+- **Acomodo por forma real (nesting)**: además del acomodo por rectángulos,
+  puede encajar las **siluetas** de los diseños (p. ej. una copia girada 180° que
+  entra en el hueco de otra), respetando la separación de corte medida sobre la
+  silueta. Funciona con vectores, imágenes con transparencia, textos y grupos.
 - **Varias hojas**: si no cabe todo, continúa en mesas de trabajo nuevas
   (*Gangsheet - Hoja 2, 3…*) a la derecha. En modo rollo eliges el largo máximo
   por hoja y la última se acorta al mínimo; en modo mesa de trabajo cada hoja nueva
@@ -66,6 +70,8 @@ La ventana tiene tres pestañas:
 | Margen al borde | Espacio entre las piezas y el borde de la hoja. |
 | Rotación | No rotar, o permitir giros; el sentido del giro (horario/antihorario) es elegible. |
 | Calidad | Rápida / Normal / Máxima. Más calidad = prueba más combinaciones (más lento). |
+| Método | **Rectángulos** (rápido) o **Forma real** (encaja siluetas; más lento). |
+| Precisión | Solo forma real: tamaño de la cuadrícula (1, 2, 3 o 5 mm). 2 mm es un buen equilibrio. |
 | Varias hojas | Continúa en hojas nuevas si no cabe todo; largo máximo por hoja (rollo) y máximo de hojas. |
 
 **Cantidades**
@@ -110,10 +116,16 @@ anteriores de esa mesa de trabajo se reemplazan.
 
 ## Notas
 
-- El acomodo se hace por **rectángulo envolvente** de cada pieza (lo recomendable
-  para recortar). En ese esquema 180° ocupa lo mismo que 0° y 270° lo mismo que
-  90°, por eso el script solo gira cuando el giro de 90° (en el sentido elegido)
-  ahorra espacio.
+- **Rectángulos**: cada pieza ocupa su rectángulo envolvente. Ahí 180° ocupa lo
+  mismo que 0°, así que solo gira 90° (en el sentido elegido) cuando ahorra espacio.
+- **Forma real**: para cada diseño se captura una imagen pequeña con transparencia
+  (en un documento temporal que se cierra solo) y se convierte en una cuadrícula de
+  celdas ocupadas. Una celda cuenta como ocupada si *cualquier* parte del diseño la
+  toca, así que la silueta siempre es un poco más grande que el arte (nunca más
+  chica) y la separación real es igual o mayor a la indicada. Prueba 0°, 90°, 180° y
+  270° (si la rotación está permitida) y coloca cada copia lo más arriba posible.
+  Si no se puede leer la silueta de un diseño, se usa su rectángulo y se avisa.
+  Con la precisión de 1 mm el cálculo es notablemente más lento.
 - Se usan los **límites visibles** (incluyen el grosor del trazo).
 - Los objetos bloqueados, ocultos o en capas bloqueadas/ocultas se ignoran. En modo
   “Selección”, el resto de objetos del documento no se toma en cuenta, así que

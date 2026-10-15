@@ -4,6 +4,7 @@
 const fs = require("fs");
 const path = require("path");
 const vm = require("vm");
+const zlib = require("zlib");
 
 const CANVAS = 8191.5; // el lienzo va de -CANVAS a +CANVAS en ambos ejes
 
@@ -18,6 +19,42 @@ function canvasError() {
 }
 
 // ------------------------------------------------------------------ DOM ---
+// ¿El punto (X, Y) del documento cae dentro de la silueta del objeto?
+// _shape(u, v) usa coordenadas normalizadas del objeto SIN girar (v hacia abajo).
+function containsPoint(it, X, Y) {
+  const b = it.visibleBounds;
+  if (X < b[0] || X > b[2] || Y > b[1] || Y < b[3]) return false;
+  if (!it._shape) return true;
+  const W = b[2] - b[0], H = b[1] - b[3];
+  let dx = X - (b[0] + b[2]) / 2, dy = (b[1] + b[3]) / 2 - Y; // pantalla: Y abajo
+  // deshacer el giro (k veces 90° antihorario => aplicar 4-k)
+  let k = (4 - Math.round((it._rot || 0) / 90) % 4) % 4;
+  while (k--) { const t = dx; dx = dy; dy = 0 - t; }
+  const k0 = Math.round((it._rot || 0) / 90) % 2;
+  const w0 = k0 ? H : W, h0 = k0 ? W : H;
+  return it._shape(dx / w0 + 0.5, dy / h0 + 0.5);
+}
+
+function encodePngRGBA(w, h, alphaAt) {
+  const raw = Buffer.alloc((w * 4 + 1) * h);
+  for (let y = 0; y < h; y++) {
+    raw[y * (w * 4 + 1)] = 0;
+    for (let x = 0; x < w; x++) {
+      const o = y * (w * 4 + 1) + 1 + x * 4;
+      raw[o] = 255; raw[o + 1] = 255; raw[o + 2] = 255; raw[o + 3] = alphaAt(x, y);
+    }
+  }
+  const chunk = (type, data) => {
+    const len = Buffer.alloc(4); len.writeUInt32BE(data.length);
+    return Buffer.concat([len, Buffer.from(type), data, Buffer.alloc(4)]); // CRC no se valida
+  };
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(w, 0); ihdr.writeUInt32BE(h, 4); ihdr[8] = 8; ihdr[9] = 6;
+  return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk("IHDR", ihdr),
+    chunk("IDAT", zlib.deflateSync(raw)), chunk("IEND", Buffer.alloc(0))]);
+}
+
+const memFiles = new Map();
 function createDocument(opts) {
   const doc = {
     typename: "Document",
@@ -26,6 +63,19 @@ function createDocument(opts) {
     documentColorSpace: "RGB",
     activeView: { centerPoint: [0, 0], zoom: 1 },
     _items: [],
+    activate() { if (doc._app) doc._app.activeDocument = doc; },
+    close() { doc._closed = true; if (doc._app) doc._app.documents.splice(doc._app.documents.indexOf(doc), 1); },
+    imageCapture(file, rect, o) {
+      const res = o.resolution;
+      const w = Math.max(1, Math.round((rect[2] - rect[0]) / 72 * res));
+      const h = Math.max(1, Math.round((rect[1] - rect[3]) / 72 * res));
+      const items = doc._items.filter((it) => !it._removed && !it.hidden);
+      const png = encodePngRGBA(w, h, (x, y) => {
+        const X = rect[0] + (x + 0.5) * 72 / res, Y = rect[1] - (y + 0.5) * 72 / res;
+        return items.some((it) => containsPoint(it, X, Y)) ? 255 : 0;
+      });
+      memFiles.set(file.fsName, png.toString("latin1"));
+    },
   };
 
   function makeArtboard(rect, name) {
@@ -102,11 +152,12 @@ function baseItem(doc, layer, typename, bounds) {
       if (Math.abs(angle) % 180 === 90) this._b = [cx - h / 2, cy + w / 2, cx + h / 2, cy - w / 2];
       this._rot = ((this._rot || 0) + angle + 360) % 360;
     },
-    duplicate() {
-      const d = baseItem(doc, layer, typename, this._b);
+    duplicate(target) {
+      const tl = target && target.typename === "Layer" ? target : layer;
+      const d = baseItem(tl.parent, tl, typename, this._b);
       d.name = this.name; d.note = this.note; d._src = this._src || this;
-      d._rot = this._rot;
-      layer.pageItems.unshift(d);
+      d._rot = this._rot; d._shape = this._shape;
+      tl.pageItems.unshift(d);
       return d;
     },
     remove() {
@@ -231,7 +282,7 @@ function makeScriptUI(onShow, toArr) {
       return w._all.slice(i).filter((x) => x.type === "edittext")[nth || 0];
     };
     return {
-      find, editAfter,
+      find, editAfter, all: () => w._all,
       click: (text) => {
         const b = find("button", text);
         if (b.onClick) b.onClick();
@@ -262,16 +313,39 @@ function runScript({ doc, onShow }) {
   const app = {
     documents: [doc],
     activeDocument: doc,
+    _docOpts: null,
     textFonts: { getByName() { throw new Error("no font"); } },
     redraw() { app.redraws = (app.redraws || 0) + 1; },
   };
-  const fakeFile = () => ({ exists: false, open: () => false, parent: null, name: "" });
-  fakeFile.prototype = {};
+  doc._app = app;
+  app.documents.add = () => {
+    const d = createDocument({ artboard: [0, 0, 612, -792] });
+    d.layers.push(makeLayer(d, "Capa 1"));
+    d._app = app;
+    app.documents.push(d);
+    app.activeDocument = d;
+    return d;
+  };
+  // Archivos en memoria (para la captura de siluetas).
+  const fakeFile = (p) => {
+    const f = {
+      fsName: String(p), name: String(p).split("/").pop(), parent: null, encoding: "UTF-8",
+      get exists() { return memFiles.has(f.fsName); },
+      open: (mode) => mode === "r" ? memFiles.has(f.fsName) : false,
+      read: () => memFiles.get(f.fsName),
+      write: () => {}, close: () => {},
+      remove: () => memFiles.delete(f.fsName),
+    };
+    return f;
+  };
   Object.assign(sandbox, {
     app, alert: (m) => alerts.push(String(m)),
     Window: ui.Window,
     File: fakeFile,
-    Folder: Object.assign(() => ({ exists: false }), { userData: "/tmp", selectDialog: () => null }),
+    Folder: Object.assign(() => ({ exists: false }), { userData: "/tmp", temp: "/mem", selectDialog: () => null }),
+    ElementPlacement: { PLACEATEND: "PLACEATEND" },
+    SaveOptions: { DONOTSAVECHANGES: "NO" },
+    ImageCaptureOptions: function () { },
     DocumentColorSpace: { RGB: "RGB", CMYK: "CMYK" },
     RGBColor: function () { }, CMYKColor: function () { },
     Transformation: { CENTER: "CENTER" },
@@ -281,4 +355,4 @@ function runScript({ doc, onShow }) {
   return { alerts, windows: ui.windows, app };
 }
 
-module.exports = { createDocument, makeLayer, addPath, runScript, insideCanvas, CANVAS };
+module.exports = { createDocument, makeLayer, addPath, runScript, insideCanvas, containsPoint, CANVAS };

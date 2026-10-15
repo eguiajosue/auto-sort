@@ -2,7 +2,7 @@
 // Uso: node test/integration.test.js
 "use strict";
 const assert = require("assert");
-const { createDocument, makeLayer, addPath, runScript, insideCanvas } = require("./illustrator-mock");
+const { createDocument, makeLayer, addPath, runScript, insideCanvas, containsPoint } = require("./illustrator-mock");
 
 const MM = 2.834645669;
 let passed = 0;
@@ -49,12 +49,17 @@ function assertNoOverlap(items, gap) {
 }
 
 // Llena el diálogo principal: ancho 580 mm, unidades mm, 3 mm de separación.
-function mainDialog(h, { qty, multi, maxLen, mode, sizes }) {
+function mainDialog(h, { qty, multi, maxLen, mode, sizes, shape, width }) {
   h.find("dropdownlist").selection = 0; // mm
   h.find("dropdownlist").onChange();
   if (mode === "fixed") h.radio("Mesa de trabajo actual");
   else h.radio("Ancho fijo");
-  h.editAfter("Ancho de la hoja").text = "580";
+  h.editAfter("Ancho de la hoja").text = String(width || 580);
+  if (shape) {
+    const ddm = h.all().find((c) => c.type === "dropdownlist" && c.items && c.items[0].text.indexOf("Rectángulos") === 0);
+    ddm.selection = 1;
+    if (ddm.onChange) ddm.onChange();
+  }
   h.editAfter("Entre elementos").text = "3";
   h.editAfter("Margen al borde").text = "3";
   if (multi) {
@@ -65,7 +70,7 @@ function mainDialog(h, { qty, multi, maxLen, mode, sizes }) {
   if (sizes) {
     h.click("Tallas por diseño");
   } else if (qty) {
-    h.find("edittext", "1").text = String(qty);
+    h.editAfter("Copias:").text = String(qty);
     h.click("Asignar copias");
   }
   h.click("Acomodar");
@@ -189,6 +194,108 @@ test("cancelar restaura la selección y no cambia nada", () => {
   assert.strictEqual(alerts.length, 0);
   assert(item.selected);
   assert.strictEqual(designs(doc).length, 1);
+});
+
+// ------------------------------------------------------- Forma real ---
+// Flecha "<" gruesa como el diseño del usuario (u, v normalizados, v hacia abajo).
+const chevronShape = (u, v) => {
+  const arm = Math.abs(v - 0.5) * 2;
+  return u >= arm - 0.22 && u <= arm + 0.13;
+};
+
+function setupChevron() {
+  const s = setup();
+  s.item._shape = chevronShape;
+  return s;
+}
+
+// Muestrea cada 1 mm: ninguna silueta se encima y la separación entre
+// siluetas distintas es al menos gap (con tolerancia de muestreo).
+function assertShapesApart(doc, items, gapMm) {
+  const step = 1 * MM;
+  const pts = [];
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  items.forEach((it) => {
+    const b = it.visibleBounds;
+    minX = Math.min(minX, b[0]); maxX = Math.max(maxX, b[2]); minY = Math.min(minY, b[3]); maxY = Math.max(maxY, b[1]);
+  });
+  const cells = new Map();
+  items.forEach((it, idx) => {
+    const b = it.visibleBounds;
+    for (let X = Math.ceil(b[0] / step) * step; X <= b[2]; X += step) {
+      for (let Y = Math.floor(b[1] / step) * step; Y >= b[3]; Y -= step) {
+        if (!containsPoint(it, X, Y)) continue;
+        const key = Math.round(X / step) + "," + Math.round(Y / step);
+        const o = cells.get(key);
+        assert(o === undefined || o === idx, `siluetas ${o} y ${idx} encimadas`);
+        cells.set(key, idx);
+      }
+    }
+  });
+  const R = Math.ceil(gapMm) - 2; // tolerancia: 2 mm de muestreo/celda
+  cells.forEach((idx, key) => {
+    const [x, y] = key.split(",").map(Number);
+    for (let dx = -R; dx <= R; dx++) for (let dy = -R; dy <= R; dy++) {
+      if (dx * dx + dy * dy > R * R) continue;
+      const o = cells.get((x + dx) + "," + (y + dy));
+      assert(o === undefined || o === idx, `siluetas ${idx} y ${o} a menos de la separación`);
+    }
+  });
+}
+
+test("forma real: 2 copias en hoja angosta se intercalan girando 180°", () => {
+  const { doc } = setupChevron();
+  const { alerts } = runScript({ doc, onShow: (w, h) => { if (w.title === "AutoSort Gangsheet DTF") mainDialog(h, { qty: 2, shape: true, width: 115 }); } });
+  const msg = alerts[alerts.length - 1];
+  assert(/Piezas acomodadas: 2 de 2/.test(msg), msg);
+  assert(/forma real/.test(msg), msg);
+  const ds = designs(doc);
+  const rots = ds.map((d) => d._rot || 0).sort((a, b) => a - b);
+  const ab = doc.artboards[0].artboardRect;
+  const hMm = (ab[1] - ab[3]) / MM;
+  console.log(`    giros: ${rots.join("°, ")}°; largo ${hMm.toFixed(1)} mm (rectángulos: ${(2 * 250.48 + 3 + 6).toFixed(1)} mm)`);
+  assert(hMm < 2 * 250.48, "deben intercalarse");
+  ds.forEach((d) => assert(within(d.visibleBounds, ab), "fuera de la hoja"));
+  assertShapesApart(doc, ds, 3);
+});
+
+test("forma real: 20 copias en rollo de 580 mm usan menos largo que rectángulos", () => {
+  const run = (shape) => {
+    const { doc } = setupChevron();
+    const { alerts } = runScript({ doc, onShow: (w, h) => { if (w.title === "AutoSort Gangsheet DTF") mainDialog(h, { qty: 20, shape }); } });
+    const ab = doc.artboards[0].artboardRect;
+    assert(/Piezas acomodadas: 20 de 20/.test(alerts[alerts.length - 1]), alerts[alerts.length - 1]);
+    designs(doc).forEach((d) => assert(within(d.visibleBounds, ab), "fuera de la hoja"));
+    return { doc, len: (ab[1] - ab[3]) / MM };
+  };
+  const shape = run(true), rect = run(false);
+  console.log(`    largo: forma ${(shape.len / 10).toFixed(1)} cm vs rectángulos ${(rect.len / 10).toFixed(1)} cm`);
+  assert(shape.len < rect.len * 0.8);
+  assertShapesApart(shape.doc, designs(shape.doc), 3);
+});
+
+test("forma real con tallas y varias hojas", () => {
+  const { doc } = setupChevron();
+  const { alerts } = runScript({
+    doc,
+    onShow: (w, h) => {
+      if (w.title.indexOf("Tallas") === 0) {
+        h.editAfter("M", 0).text = "30";
+        h.editAfter("XL", 0).text = "30";
+        h.click("Aceptar");
+      } else if (w.title === "AutoSort Gangsheet DTF") {
+        mainDialog(h, { sizes: true, shape: true, multi: true, maxLen: 1000 });
+      }
+    },
+  });
+  const msg = alerts[alerts.length - 1];
+  assert(/Piezas acomodadas: 60 de 60/.test(msg), msg);
+  assert(doc.artboards.length >= 2, msg);
+  const all = designs(doc).concat(labels(doc));
+  all.forEach((it) => assert.strictEqual(doc.artboards.filter((a) => within(it.visibleBounds, a.artboardRect)).length, 1, "pieza o etiqueta fuera de hoja"));
+  assert.strictEqual(labels(doc).length, 60);
+  assertShapesApart(doc, all, 1.5); // etiquetas a 1.5 mm de su diseño
+  console.log("    " + msg.split("\n").filter((l) => /^Hoja/.test(l)).join(" | "));
 });
 
 console.log(`\n${passed} pruebas de integración OK`);

@@ -442,6 +442,549 @@
     // === PACKER END ===
 
     // =====================================================================
+    // === NEST START ===
+    // Acomodo por forma real ("nesting") sobre una cuadrícula. Cada diseño se
+    // representa como una máscara de celdas ocupadas (obtenida de una captura
+    // PNG con transparencia). Incluye un decodificador PNG/zlib mínimo porque
+    // ExtendScript no puede leer píxeles. Independiente de Illustrator.
+    // =====================================================================
+    var Nest = (function () {
+
+        // ------------------------- zlib inflate -------------------------
+        // Adaptación a ES3 de tiny-inflate (MIT, Devon Govett / Joergen Ibsen).
+        function zeros(n) { var a = [], i; for (i = 0; i < n; i++) a.push(0); return a; }
+        function Tree() { this.table = zeros(16); this.trans = zeros(288); }
+
+        var sltree = new Tree(), sdtree = new Tree(), ltree = new Tree(), dtree = new Tree(), codeTree = new Tree();
+        var lengthBits = zeros(30), lengthBase = zeros(30), distBits = zeros(30), distBase = zeros(30);
+        var clcidx = [16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15];
+        var lengths = zeros(288 + 32), offs = zeros(16);
+
+        function buildBitsBase(bits, base, delta, first) {
+            var i, sum;
+            for (i = 0; i < delta; ++i) bits[i] = 0;
+            for (i = 0; i < 30 - delta; ++i) bits[i + delta] = (i / delta) | 0;
+            for (sum = first, i = 0; i < 30; ++i) { base[i] = sum; sum += 1 << bits[i]; }
+        }
+
+        function buildFixedTrees(lt, dt) {
+            var i;
+            for (i = 0; i < 7; ++i) lt.table[i] = 0;
+            lt.table[7] = 24; lt.table[8] = 152; lt.table[9] = 112;
+            for (i = 0; i < 24; ++i) lt.trans[i] = 256 + i;
+            for (i = 0; i < 144; ++i) lt.trans[24 + i] = i;
+            for (i = 0; i < 8; ++i) lt.trans[24 + 144 + i] = 280 + i;
+            for (i = 0; i < 112; ++i) lt.trans[24 + 144 + 8 + i] = 144 + i;
+            for (i = 0; i < 5; ++i) dt.table[i] = 0;
+            dt.table[5] = 32;
+            for (i = 0; i < 32; ++i) dt.trans[i] = i;
+        }
+
+        function buildTree(t, lens, off, num) {
+            var i, sum;
+            for (i = 0; i < 16; ++i) t.table[i] = 0;
+            for (i = 0; i < num; ++i) t.table[lens[off + i]]++;
+            t.table[0] = 0;
+            for (sum = 0, i = 0; i < 16; ++i) { offs[i] = sum; sum += t.table[i]; }
+            for (i = 0; i < num; ++i) if (lens[off + i]) t.trans[offs[lens[off + i]]++] = i;
+        }
+
+        function getBit(d) {
+            if (!d.bitcount--) { d.tag = d.s[d.i++] | 0; d.bitcount = 7; }
+            var bit = d.tag & 1;
+            d.tag >>>= 1;
+            return bit;
+        }
+
+        function readBits(d, num, base) {
+            if (!num) return base;
+            while (d.bitcount < 24) { d.tag |= (d.s[d.i++] | 0) << d.bitcount; d.bitcount += 8; }
+            var val = d.tag & (0xffff >>> (16 - num));
+            d.tag >>>= num;
+            d.bitcount -= num;
+            return val + base;
+        }
+
+        function decodeSymbol(d, t) {
+            while (d.bitcount < 24) { d.tag |= (d.s[d.i++] | 0) << d.bitcount; d.bitcount += 8; }
+            var sum = 0, cur = 0, len = 0, tag = d.tag;
+            do {
+                cur = 2 * cur + (tag & 1);
+                tag >>>= 1;
+                ++len;
+                sum += t.table[len];
+                cur -= t.table[len];
+            } while (cur >= 0);
+            d.tag = tag;
+            d.bitcount -= len;
+            return t.trans[sum + cur];
+        }
+
+        function decodeTrees(d, lt, dt) {
+            var hlit = readBits(d, 5, 257), hdist = readBits(d, 5, 1), hclen = readBits(d, 4, 4);
+            var i, num, length, sym, prev;
+            for (i = 0; i < 19; ++i) lengths[i] = 0;
+            for (i = 0; i < hclen; ++i) lengths[clcidx[i]] = readBits(d, 3, 0);
+            buildTree(codeTree, lengths, 0, 19);
+            for (num = 0; num < hlit + hdist;) {
+                sym = decodeSymbol(d, codeTree);
+                if (sym === 16) {
+                    prev = lengths[num - 1];
+                    for (length = readBits(d, 2, 3); length; --length) lengths[num++] = prev;
+                } else if (sym === 17) {
+                    for (length = readBits(d, 3, 3); length; --length) lengths[num++] = 0;
+                } else if (sym === 18) {
+                    for (length = readBits(d, 7, 11); length; --length) lengths[num++] = 0;
+                } else {
+                    lengths[num++] = sym;
+                }
+            }
+            buildTree(lt, lengths, 0, hlit);
+            buildTree(dt, lengths, hlit, hdist);
+        }
+
+        function inflateBlockData(d, lt, dt) {
+            var out = d.out, sym, length, dist, start, i;
+            for (;;) {
+                sym = decodeSymbol(d, lt);
+                if (sym === 256) return;
+                if (sym < 256) { out.push(sym); continue; }
+                sym -= 257;
+                length = readBits(d, lengthBits[sym], lengthBase[sym]);
+                dist = decodeSymbol(d, dt);
+                start = out.length - readBits(d, distBits[dist], distBase[dist]);
+                for (i = start; i < start + length; ++i) out.push(out[i]);
+            }
+        }
+
+        function inflateUncompressed(d) {
+            var length, i;
+            while (d.bitcount > 8) { d.i--; d.bitcount -= 8; }
+            length = 256 * d.s[d.i + 1] + d.s[d.i];
+            d.i += 4;
+            for (i = length; i; --i) d.out.push(d.s[d.i++]);
+            d.bitcount = 0;
+        }
+
+        // bytes: arreglo de 0..255 (flujo zlib completo).
+        function inflate(bytes) {
+            var d = { s: bytes, i: 2, tag: 0, bitcount: 0, out: [] }, bfinal, btype;
+            do {
+                bfinal = getBit(d);
+                btype = readBits(d, 2, 0);
+                if (btype === 0) inflateUncompressed(d);
+                else if (btype === 1) inflateBlockData(d, sltree, sdtree);
+                else if (btype === 2) { decodeTrees(d, ltree, dtree); inflateBlockData(d, ltree, dtree); }
+                else throw new Error("PNG: bloque comprimido inválido");
+                if (d.i > bytes.length + 4) throw new Error("PNG: datos incompletos");
+            } while (!bfinal);
+            return d.out;
+        }
+
+        buildFixedTrees(sltree, sdtree);
+        buildBitsBase(lengthBits, lengthBase, 4, 3);
+        buildBitsBase(distBits, distBase, 2, 1);
+        lengthBits[28] = 0;
+        lengthBase[28] = 258;
+
+        // ----------------------------- PNG ------------------------------
+        function toBytes(s) {
+            if (typeof s !== "string") return s;
+            var out = [], i;
+            for (i = 0; i < s.length; i++) out.push(s.charCodeAt(i) & 0xff);
+            return out;
+        }
+
+        function u32(b, p) { return ((b[p] << 24) >>> 0) + (b[p + 1] << 16) + (b[p + 2] << 8) + b[p + 3]; }
+
+        // Devuelve {width, height, alpha: [0..255]} — solo el canal de opacidad.
+        function decodePng(data) {
+            var b = toBytes(data), sig = [137, 80, 78, 71, 13, 10, 26, 10], i, p = 8;
+            for (i = 0; i < 8; i++) if (b[i] !== sig[i]) throw new Error("No es un PNG");
+            var w = 0, h = 0, depth = 0, ctype = 0, interlace = 0, idat = [], trns = null, len, type;
+            while (p + 8 <= b.length) {
+                len = u32(b, p);
+                type = String.fromCharCode(b[p + 4], b[p + 5], b[p + 6], b[p + 7]);
+                if (type === "IHDR") {
+                    w = u32(b, p + 8); h = u32(b, p + 12);
+                    depth = b[p + 16]; ctype = b[p + 17]; interlace = b[p + 20];
+                } else if (type === "tRNS") {
+                    trns = b.slice(p + 8, p + 8 + len);
+                } else if (type === "IDAT") {
+                    for (i = 0; i < len; i++) idat.push(b[p + 8 + i]);
+                } else if (type === "IEND") {
+                    break;
+                }
+                p += 12 + len;
+            }
+            if (!w || !h) throw new Error("PNG sin encabezado");
+            if (depth !== 8 || interlace) throw new Error("PNG no soportado (profundidad " + depth + ")");
+            var ch = { 0: 1, 2: 3, 3: 1, 4: 2, 6: 4 }[ctype];
+            if (!ch) throw new Error("PNG: tipo de color " + ctype);
+            var raw = inflate(idat), stride = w * ch, prev = zeros(stride), cur, f, x, a, bb, c, pa, pb, pc, pos = 0;
+            var alpha = [];
+            for (var y = 0; y < h; y++) {
+                f = raw[pos++];
+                cur = [];
+                for (x = 0; x < stride; x++) {
+                    var v = raw[pos++] | 0;
+                    a = x >= ch ? cur[x - ch] : 0;
+                    bb = prev[x];
+                    c = x >= ch ? prev[x - ch] : 0;
+                    if (f === 1) v += a;
+                    else if (f === 2) v += bb;
+                    else if (f === 3) v += (a + bb) >> 1;
+                    else if (f === 4) {
+                        pa = Math.abs(bb - c); pb = Math.abs(a - c); pc = Math.abs(a + bb - 2 * c);
+                        v += (pa <= pb && pa <= pc) ? a : (pb <= pc ? bb : c);
+                    }
+                    cur.push(v & 0xff);
+                }
+                for (x = 0; x < w; x++) {
+                    if (ctype === 6) alpha.push(cur[x * 4 + 3]);
+                    else if (ctype === 4) alpha.push(cur[x * 2 + 1]);
+                    else if (ctype === 3) alpha.push(trns && cur[x] < trns.length ? trns[cur[x]] : 255);
+                    else alpha.push(255);
+                }
+                prev = cur;
+            }
+            return { width: w, height: h, alpha: alpha };
+        }
+
+        // ---------------------------- Máscaras ---------------------------
+        // mask: {w, h, d: [0/1] por filas}
+        function emptyMask(w, h) { return { w: w, h: h, d: zeros(w * h) }; }
+
+        function fullMask(w, h) {
+            var m = emptyMask(w, h), i;
+            for (i = 0; i < w * h; i++) m.d[i] = 1;
+            return m;
+        }
+
+        // Reduce la imagen a una máscara de w x h celdas: una celda está
+        // ocupada si cualquier píxel suyo tiene opacidad > threshold.
+        function maskFromAlpha(img, w, h, threshold) {
+            var m = emptyMask(w, h), px, py, cx, cy;
+            for (py = 0; py < img.height; py++) {
+                cy = Math.min(h - 1, Math.floor(py * h / img.height));
+                for (px = 0; px < img.width; px++) {
+                    if (img.alpha[py * img.width + px] > threshold) {
+                        cx = Math.min(w - 1, Math.floor(px * w / img.width));
+                        m.d[cy * w + cx] = 1;
+                    }
+                }
+            }
+            return m;
+        }
+
+        function maskArea(m) {
+            var n = 0, i;
+            for (i = 0; i < m.d.length; i++) n += m.d[i];
+            return n;
+        }
+
+        // Copia src dentro de dst con desplazamiento (ox, oy).
+        function blit(dst, src, ox, oy) {
+            var x, y;
+            for (y = 0; y < src.h; y++) {
+                for (x = 0; x < src.w; x++) {
+                    if (src.d[y * src.w + x]) dst.d[(y + oy) * dst.w + x + ox] = 1;
+                }
+            }
+        }
+
+        // Gira k veces 90° en sentido antihorario (visual, Y hacia abajo).
+        function rotateMask(m, k) {
+            k = ((k % 4) + 4) % 4;
+            var r = m, t, x, y;
+            while (k--) {
+                t = emptyMask(r.h, r.w);
+                for (y = 0; y < r.h; y++) {
+                    for (x = 0; x < r.w; x++) {
+                        if (r.d[y * r.w + x]) t.d[(r.w - 1 - x) * t.w + y] = 1;
+                    }
+                }
+                r = t;
+            }
+            return r;
+        }
+
+        // Tramos ocupados por fila: [[ini, fin, ini, fin...], ...]
+        function rowRuns(m) {
+            var rows = [], x, y, s, runs;
+            for (y = 0; y < m.h; y++) {
+                runs = [];
+                x = 0;
+                while (x < m.w) {
+                    if (m.d[y * m.w + x]) {
+                        s = x;
+                        while (x < m.w && m.d[y * m.w + x]) x++;
+                        runs.push(s, x - 1);
+                    } else x++;
+                }
+                rows.push(runs);
+            }
+            return rows;
+        }
+
+        // Une tramos [a,b,...] desordenados en una lista ordenada sin traslapes.
+        function mergeRuns(list) {
+            var pairs = [], i, out = [];
+            for (i = 0; i < list.length; i += 2) pairs.push([list[i], list[i + 1]]);
+            pairs.sort(function (p, q) { return p[0] - q[0]; });
+            for (i = 0; i < pairs.length; i++) {
+                if (out.length && pairs[i][0] <= out[out.length - 1] + 1) {
+                    if (pairs[i][1] > out[out.length - 1]) out[out.length - 1] = pairs[i][1];
+                } else out.push(pairs[i][0], pairs[i][1]);
+            }
+            return out;
+        }
+
+        // Núcleo de separación: dos celdas están en conflicto si la distancia
+        // entre sus cuadros es menor que gap (o si son la misma celda).
+        // Devuelve {r, ex}: ex[dy + r] = máximo |dx| en conflicto para ese dy.
+        function kernel(gapPt, cellPt) {
+            function conflict(dx, dy) {
+                if (!dx && !dy) return true;
+                var gx = Math.max(0, Math.abs(dx) - 1) * cellPt, gy = Math.max(0, Math.abs(dy) - 1) * cellPt;
+                return gx * gx + gy * gy < gapPt * gapPt;
+            }
+            var r = 0, ex = [], dy, e;
+            while (r < 1000 && conflict(0, r + 1)) r++;
+            for (dy = -r; dy <= r; dy++) {
+                e = 0;
+                while (e < 1000 && conflict(e + 1, dy)) e++;
+                ex.push(e);
+            }
+            return { r: r, ex: ex };
+        }
+
+        // Tramos de la máscara "engordada" con el núcleo (para probar choques).
+        function dilateRows(rows, h, ker) {
+            var out = [], j, dy, src, q, e, list, runs;
+            for (j = -ker.r; j < h + ker.r; j++) {
+                list = [];
+                for (dy = -ker.r; dy <= ker.r; dy++) {
+                    e = ker.ex[dy + ker.r];
+                    src = j - dy;
+                    if (src < 0 || src >= h) continue;
+                    runs = rows[src];
+                    for (q = 0; q < runs.length; q += 2) list.push(runs[q] - e, runs[q + 1] + e);
+                }
+                out.push(mergeRuns(list));
+            }
+            return out;
+        }
+
+        // Prepara una forma con sus giros permitidos.
+        var shapeCount = 0;
+        function prepareShape(mask, ker, allowRotate) {
+            var rots = [], k, m, rows, i, q, wide, wideRow, len, key, seen = {};
+            for (k = 0; k < (allowRotate ? 4 : 1); k++) {
+                m = rotateMask(mask, k);
+                key = m.w + "x" + m.h + ":" + m.d.join("");
+                if (seen[key]) continue; // giro idéntico (forma simétrica)
+                seen[key] = true;
+                rows = rowRuns(m);
+                wide = 0; wideRow = 0;
+                for (i = 0; i < rows.length; i++) {
+                    for (q = 0; q < rows[i].length; q += 2) {
+                        len = rows[i][q + 1] - rows[i][q] + 1;
+                        if (len > wide) { wide = len; wideRow = i; }
+                    }
+                }
+                rots.push({
+                    k: k, w: m.w, h: m.h, rows: rows,
+                    probe: dilateRows(rows, m.h, ker), probeOy: -ker.r,
+                    wideRow: wideRow, wideLen: wide
+                });
+            }
+            return { key: "s" + (shapeCount++), rots: rots, area: maskArea(mask), w: mask.w, h: mask.h };
+        }
+
+        // ---------------------------- Cuadrícula -------------------------
+        function Grid(w, h) {
+            this.w = w;
+            this.h = h;
+            this.rows = [];
+            this.free = [];
+        }
+
+        // -1 si [a,b] está libre en la fila; si no, el fin del tramo que choca.
+        Grid.prototype.hit = function (row, a, b) {
+            var iv = this.rows[row];
+            if (!iv) return -1;
+            var lo = 0, hi = iv.length / 2, mid;
+            while (lo < hi) {
+                mid = (lo + hi) >> 1;
+                if (iv[2 * mid + 1] < a) lo = mid + 1; else hi = mid;
+            }
+            if (lo < iv.length / 2 && iv[2 * lo] <= b) return iv[2 * lo + 1];
+            return -1;
+        };
+
+        Grid.prototype.add = function (row, a, b) {
+            var iv = this.rows[row] || [];
+            iv.push(a, b);
+            this.rows[row] = mergeRuns(iv);
+            this.free[row] = undefined;
+        };
+
+        // Hueco libre más largo de la fila (dentro de la hoja).
+        Grid.prototype.maxFree = function (row) {
+            var f = this.free[row];
+            if (f !== undefined) return f;
+            var iv = this.rows[row], best = 0, pos = 0, i;
+            if (!iv) best = this.w;
+            else {
+                for (i = 0; i < iv.length; i += 2) {
+                    if (iv[i] - pos > best) best = iv[i] - pos;
+                    pos = iv[i + 1] + 1;
+                }
+                if (this.w - pos > best) best = this.w - pos;
+            }
+            this.free[row] = best;
+            return best;
+        };
+
+        // 0 si la forma cabe en (x, y); si no, cuánto avanzar en x.
+        function fits(grid, rot, x, y) {
+            var r, gy, runs, q, a, e, probe = rot.probe;
+            for (r = 0; r < probe.length; r++) {
+                gy = y + rot.probeOy + r;
+                if (gy < 0 || gy >= grid.h) continue;
+                runs = probe[r];
+                for (q = 0; q < runs.length; q += 2) {
+                    a = x + runs[q];
+                    e = grid.hit(gy, a, x + runs[q + 1]);
+                    if (e >= 0) return e + 1 - a;
+                }
+            }
+            return 0;
+        }
+
+        // Posición más arriba (y luego más a la izquierda) donde cabe el giro.
+        // Se detiene si ya no puede mejorar el borde inferior maxBottom.
+        function findPos(grid, rot, startY, maxBottom) {
+            var y, x, j, lim = grid.h - rot.h;
+            for (y = startY; y <= lim; y++) {
+                if (maxBottom !== null && y + rot.h >= maxBottom) return null;
+                if (rot.wideLen && grid.maxFree(y + rot.wideRow) < rot.wideLen) continue;
+                x = 0;
+                while (x + rot.w <= grid.w) {
+                    j = fits(grid, rot, x, y);
+                    if (!j) return { x: x, y: y };
+                    x += j;
+                }
+            }
+            return null;
+        }
+
+        function place(grid, rot, x, y) {
+            var j, q, runs;
+            for (j = 0; j < rot.rows.length; j++) {
+                runs = rot.rows[j];
+                for (q = 0; q < runs.length; q += 2) grid.add(y + j, x + runs[q], x + runs[q + 1]);
+            }
+        }
+
+        // --------------------------- Acomodo -----------------------------
+        var ORDERS = {
+            area: function (a, b) { return b.shape.area - a.shape.area; },
+            maxSide: function (a, b) { return Math.max(b.shape.w, b.shape.h) - Math.max(a.shape.w, a.shape.h); },
+            height: function (a, b) { return b.shape.h - a.shape.h; }
+        };
+
+        // Una pasada codiciosa. items: [{id, shape}]
+        function greedy(items, gridW, gridH, order, onStep) {
+            var list = items.slice(0), grid = new Grid(gridW, gridH), i, r, rot, pos, best, bottom;
+            var placed = [], unplaced = [], usedH = 0, startKey, starts = {};
+            var fn = ORDERS[order];
+            list.sort(function (a, b) { return fn(a, b) || (a.id - b.id); });
+            for (i = 0; i < list.length; i++) {
+                best = null;
+                for (r = 0; r < list[i].shape.rots.length; r++) {
+                    rot = list[i].shape.rots[r];
+                    // Las posiciones descartadas antes para esta forma y giro
+                    // siguen ocupadas (la hoja solo se llena).
+                    startKey = list[i].shape.key + "/" + rot.k;
+                    pos = findPos(grid, rot, starts[startKey] || 0, best ? best.bottom : null);
+                    if (pos) {
+                        bottom = pos.y + rot.h;
+                        if (!best || bottom < best.bottom) best = { rot: rot, x: pos.x, y: pos.y, bottom: bottom, key: startKey };
+                    }
+                }
+                if (onStep) onStep(i + 1, list.length);
+                if (!best) { unplaced.push(list[i].id); continue; }
+                starts[best.key] = best.y;
+                place(grid, best.rot, best.x, best.y);
+                placed.push({ id: list[i].id, x: best.x, y: best.y, k: best.rot.k, w: best.rot.w, h: best.rot.h });
+                if (best.bottom > usedH) usedH = best.bottom;
+            }
+            return { placed: placed, unplaced: unplaced, usedH: usedH };
+        }
+
+        function ordersFor(quality) {
+            if (quality === "fast") return ["area"];
+            if (quality === "best") return ["area", "maxSide", "height"];
+            return ["area", "maxSide"];
+        }
+
+        // Una hoja: el mejor de varios órdenes (más piezas y luego menos alto).
+        // opts: {gridW, gridH, quality, onProgress}
+        function pack(items, opts) {
+            var orders = ordersFor(opts.quality), best = null, res, o;
+            for (o = 0; o < orders.length; o++) {
+                res = greedy(items, opts.gridW, opts.gridH, orders[o], function (d, t) {
+                    if (opts.onProgress) opts.onProgress(o * t + d, orders.length * t, "Acomodando por forma");
+                });
+                if (!best || res.placed.length > best.placed.length ||
+                    (res.placed.length === best.placed.length && res.usedH < best.usedH)) best = res;
+            }
+            return best;
+        }
+
+        // Varias hojas: llena una y pasa lo que sobra a la siguiente.
+        function packSheets(items, opts) {
+            var remaining = items.slice(0), sheets = [], res, left, i, k, n;
+            var maxSheets = opts.maxSheets || 100;
+            while (remaining.length && sheets.length < maxSheets) {
+                n = sheets.length + 1;
+                res = pack(remaining, {
+                    gridW: opts.gridW, gridH: opts.gridH, quality: opts.quality,
+                    onProgress: function (d, t, m) { if (opts.onProgress) opts.onProgress(d, t, "Hoja " + n + ": " + m); }
+                });
+                if (!res.placed.length) break;
+                sheets.push(res);
+                left = {};
+                for (i = 0; i < res.unplaced.length; i++) left[res.unplaced[i]] = true;
+                k = [];
+                for (i = 0; i < remaining.length; i++) if (left[remaining[i].id]) k.push(remaining[i]);
+                remaining = k;
+            }
+            var ids = [];
+            for (i = 0; i < remaining.length; i++) ids.push(remaining[i].id);
+            return { sheets: sheets, unplaced: ids };
+        }
+
+        // Gira un vector (u, v) k veces 90° antihorario (Y hacia abajo).
+        function rotVec(u, v, k) {
+            var t;
+            k = ((k % 4) + 4) % 4;
+            while (k--) { t = u; u = v; v = 0 - t; }
+            return [u, v];
+        }
+
+        return {
+            inflate: inflate, decodePng: decodePng, emptyMask: emptyMask, fullMask: fullMask,
+            maskFromAlpha: maskFromAlpha, maskArea: maskArea, blit: blit, rotateMask: rotateMask,
+            rowRuns: rowRuns, mergeRuns: mergeRuns, kernel: kernel, dilateRows: dilateRows,
+            prepareShape: prepareShape, Grid: Grid, pack: pack, packSheets: packSheets, rotVec: rotVec
+        };
+    })();
+    // === NEST END ===
+
+    // =====================================================================
     // === UTILS START ===
     // Utilidades puras (sin Illustrator), probadas en Node.
     // =====================================================================
@@ -576,6 +1119,7 @@
     var LABEL_LAYER = "Etiquetas de talla";
     var SHEET_PREFIX = "Gangsheet - Hoja ";
     var SHEET_GAP = 56.69; // pt (2 cm) entre hojas
+    var SHAPE_CELLS_MM = [1, 2, 3, 5]; // precisión del acomodo por forma
     var SIZE_PRESETS = ["(sin etiqueta)", "XS", "S", "M", "L", "XL", "2XL", "3XL", "4XL", "Personalizada..."];
     var CONFIG_FILE = File(Folder.userData + "/AutoSortGangsheetDTF.cfg");
     var TYPE_LABELS = {
@@ -602,7 +1146,8 @@
             exportPng: false, ppi: 300,
             preflight: true, minPpi: 300, minLine: 0.5 * UNITS.mm,
             labelPt: 7, labelOffset: 1.5 * UNITS.mm,
-            multiSheet: false, maxLength: 300 * UNITS.cm, maxSheets: 20, showOnCanvas: true
+            multiSheet: false, maxLength: 300 * UNITS.cm, maxSheets: 20, showOnCanvas: true,
+            method: 0, shapeCell: 1
         };
         try {
             if (CONFIG_FILE.exists && CONFIG_FILE.open("r")) {
@@ -1005,6 +1550,20 @@
         gQ.add("statictext", undefined, "Calidad:").preferredSize.width = 70;
         var ddQ = gQ.add("dropdownlist", undefined, ["Rápida", "Normal", "Máxima (más lenta)"]);
         ddQ.selection = cfg.quality;
+        var gM = pOpt.add("group");
+        gM.add("statictext", undefined, "Método:").preferredSize.width = 70;
+        var ddMethod = gM.add("dropdownlist", undefined, [
+            "Rectángulos (rápido)",
+            "Forma real: encaja siluetas (más lento)"
+        ]);
+        ddMethod.selection = cfg.method;
+        var gCell = pOpt.add("group");
+        gCell.add("statictext", undefined, "Precisión:").preferredSize.width = 70;
+        var cellNames = [];
+        for (u = 0; u < SHAPE_CELLS_MM.length; u++) cellNames.push(SHAPE_CELLS_MM[u] + " mm" + (u === 1 ? " (recomendada)" : u === 0 ? " (más lenta)" : ""));
+        var ddCell = gCell.add("dropdownlist", undefined, cellNames);
+        ddCell.selection = cfg.shapeCell;
+        pOpt.add("statictext", undefined, "Forma real: con rotación prueba 0°, 90°, 180° y 270° para encajar las siluetas.");
 
         // ---- Pestaña Cantidades ----
         // Cada fila es "diseño + talla + copias". Un diseño puede tener varias
@@ -1313,12 +1872,13 @@
             gLen.enabled = gStd.enabled = cbResize.value;
             gStd.enabled = cbResize.value && ddLen.selection.index === 2;
             etPpi.enabled = cbExport.value;
+            gCell.enabled = ddMethod.selection.index === 1;
             gPre.enabled = cbPre.value;
         }
         rbStrip.onClick = function () { rbFixed.value = false; syncMode(); };
         rbFixed.onClick = function () { rbStrip.value = false; syncMode(); };
         cbResize.onClick = cbExport.onClick = cbPre.onClick = cbMulti.onClick = syncMode;
-        ddLen.onChange = syncMode;
+        ddLen.onChange = ddMethod.onChange = syncMode;
         if (cfg.mode === "fixed") rbFixed.value = true; else rbStrip.value = true;
 
         var convRows = [rowW.edit, rowGap.edit, rowMargin.edit, etMinLine, etLabelOff, rowMaxLen.edit];
@@ -1403,6 +1963,8 @@
                 maxLength: maxLen === null ? cfg.maxLength : maxLen * k,
                 maxSheets: isNaN(maxSheets) ? cfg.maxSheets : maxSheets,
                 showOnCanvas: cbShow.value,
+                method: ddMethod.selection.index,
+                shapeCell: ddCell.selection.index,
                 rows: rows
             };
             w.close(1);
@@ -1507,6 +2069,79 @@
             if (!folder) return null;
         }
         return { folder: folder, name: name };
+    }
+
+    // --------------------------- Forma real -----------------------------
+    // Captura la silueta de cada diseño (PNG transparente de baja resolución
+    // en un documento temporal) y la reduce a una máscara de celdas cellPt.
+    // Devuelve cuántos diseños no se pudieron leer (usan su rectángulo).
+    function captureMasks(list, cellPt, onProgress) {
+        var tmp = null, fails = 0, i, piece, dup, b, W, H, io, data, img;
+        var file = File(Folder.temp + "/autosort_forma.png");
+        try { tmp = app.documents.add(doc.documentColorSpace); } catch (e) { tmp = null; }
+        for (i = 0; i < list.length; i++) {
+            piece = list[i];
+            W = Math.max(1, Math.ceil(piece.w / cellPt - 1e-6));
+            H = Math.max(1, Math.ceil(piece.h / cellPt - 1e-6));
+            piece.mask = null;
+            dup = null;
+            if (tmp) {
+                try {
+                    dup = piece.item.duplicate(tmp.layers[0], ElementPlacement.PLACEATEND);
+                    dup.hidden = false;
+                    b = getBounds(dup);
+                    io = new ImageCaptureOptions();
+                    io.resolution = 2 * 72 / cellPt; // 2 píxeles por celda
+                    io.transparency = true;
+                    io.antiAliasing = true;
+                    if (file.exists) file.remove();
+                    tmp.imageCapture(file, [b[0], b[1], b[0] + W * cellPt, b[1] - H * cellPt], io);
+                    file.encoding = "BINARY";
+                    data = null;
+                    if (file.open("r")) { data = file.read(); file.close(); }
+                    if (data) {
+                        img = Nest.decodePng(data);
+                        piece.mask = Nest.maskFromAlpha(img, W, H, 2);
+                        if (!Nest.maskArea(piece.mask)) piece.mask = null;
+                    }
+                } catch (e2) {
+                    piece.mask = null;
+                }
+                try { if (dup) dup.remove(); } catch (e3) { }
+                try { if (file.exists) file.remove(); } catch (e4) { }
+            }
+            if (!piece.mask) { piece.mask = Nest.fullMask(W, H); fails++; }
+            if (onProgress) onProgress(i + 1, list.length, "Leyendo la silueta de los diseños");
+        }
+        if (tmp) { try { tmp.close(SaveOptions.DONOTSAVECHANGES); } catch (e5) { } }
+        try { doc.activate(); } catch (e6) { }
+        return fails;
+    }
+
+    // Forma "diseño + etiqueta debajo" como máscara, con los centros del
+    // diseño y de la etiqueta medidos desde el centro de su rectángulo.
+    function shapeGeometry(piece, label, cellPt, ker, allowRotate) {
+        var dm = piece.mask, ls = label ? labelSize[label] : null;
+        var Wl = 0, Hl = 0, off = 0, lx = 0;
+        if (ls) {
+            Wl = Math.max(1, Math.ceil(ls.w / cellPt - 1e-6));
+            Hl = Math.max(1, Math.ceil(ls.h / cellPt - 1e-6));
+            off = Math.ceil(opts.labelOffset / cellPt - 1e-6);
+        }
+        var Wc = Math.max(dm.w, Wl), Hc = dm.h + (ls ? off + Hl : 0);
+        var m = Nest.emptyMask(Wc, Hc), dx = Math.floor((Wc - dm.w) / 2);
+        Nest.blit(m, dm, dx, 0);
+        if (ls) {
+            lx = Math.floor((Wc - Wl) / 2);
+            Nest.blit(m, Nest.fullMask(Wl, Hl), lx, dm.h + off);
+        }
+        var boxW = Wc * cellPt, boxH = Hc * cellPt;
+        return {
+            shape: Nest.prepareShape(m, ker, allowRotate),
+            boxW: boxW, boxH: boxH,
+            dOff: [dx * cellPt + piece.w / 2 - boxW / 2, piece.h / 2 - boxH / 2],
+            lOff: ls ? [lx * cellPt + Wl * cellPt / 2 - boxW / 2, (dm.h + off) * cellPt + Hl * cellPt / 2 - boxH / 2] : null
+        };
     }
 
     // ------------------------------ Lienzo ------------------------------
@@ -1689,7 +2324,9 @@
 
     // Revisión rápida: en modo rollo de una sola hoja, si el área total ya
     // excede el lienzo de Illustrator no vale la pena calcular el acomodo.
-    if (opts.mode === "strip" && !opts.multiSheet) {
+    // (Por forma no aplica: las siluetas pueden encajar en menos área.)
+    var shapeMode = opts.method === 1;
+    if (opts.mode === "strip" && !opts.multiSheet && !shapeMode) {
         var binW0 = opts.width - 2 * opts.margin + opts.gap, area0 = 0;
         for (i = 0; i < packItems.length; i++) area0 += (packItems[i].w + opts.gap) * (packItems[i].h + opts.gap);
         if (binW0 > 0 && area0 / binW0 - opts.gap + 2 * opts.margin > MAX_CANVAS - 1) {
@@ -1713,9 +2350,30 @@
         onProgress: function (d, t, m) { progressWin.update(d, t, m); }
     };
     // sheets: [{placements, height}] — una entrada por hoja.
-    var sheets = [], res;
+    var sheets = [], res, cellPt = SHAPE_CELLS_MM[opts.shapeCell] * UNITS.mm, shapeGeo = {}, shapeFails = 0;
     try {
-        if (opts.multiSheet) {
+        if (shapeMode) {
+            shapeFails = captureMasks(pieces, cellPt, packOpts.onProgress);
+            var ker = Nest.kernel(opts.gap, cellPt), nestItems = [], key;
+            for (i = 0; i < copies.length; i++) {
+                key = copies[i].piece.idx + "|" + copies[i].label;
+                if (!shapeGeo[key]) shapeGeo[key] = shapeGeometry(copies[i].piece, copies[i].label, cellPt, ker, packOpts.allowRotate);
+                copies[i].key = key;
+                nestItems.push({ id: i, shape: shapeGeo[key].shape });
+            }
+            var gridW = Math.floor((packOpts.width - 2 * opts.margin) / cellPt + 1e-6);
+            var gridH = Math.floor(((opts.mode === "fixed" ? abH : opts.multiSheet ? opts.maxLength : MAX_CANVAS - 1) - 2 * opts.margin) / cellPt + 1e-6);
+            var nestOpts = { gridW: gridW, gridH: gridH, quality: packOpts.quality, maxSheets: opts.maxSheets, onProgress: packOpts.onProgress };
+            var nres = opts.multiSheet ? Nest.packSheets(nestItems, nestOpts) : { sheets: [Nest.pack(nestItems, nestOpts)] };
+            res = { unplaced: nres.unplaced || nres.sheets[0].unplaced };
+            for (i = 0; i < nres.sheets.length; i++) {
+                if (!nres.sheets[i].placed.length) continue;
+                sheets.push({
+                    placements: nres.sheets[i].placed,
+                    height: opts.mode === "fixed" ? abH : nres.sheets[i].usedH * cellPt + 2 * opts.margin
+                });
+            }
+        } else if (opts.multiSheet) {
             packOpts.height = opts.mode === "strip" ? opts.maxLength : abH;
             packOpts.strip = opts.mode === "strip";
             packOpts.maxSheets = opts.maxSheets;
@@ -1842,6 +2500,12 @@
     var dir = opts.rotation === 2 ? "ccw" : "cw";
 
     // Centra un objeto dentro de un hueco (coordenadas de pantalla relativas a la hoja).
+    // Ubica el centro de un objeto en (cx, cy) de la hoja (pantalla, Y abajo).
+    function placeAt(obj, cx, cy, ox, oy) {
+        var b = getBounds(obj);
+        obj.translate(ox + cx - (b[0] + b[2]) / 2, oy - cy - (b[1] + b[3]) / 2);
+    }
+
     function placeCentered(obj, r, ox, oy) {
         var b = getBounds(obj), bw = b[2] - b[0], bh = b[1] - b[3];
         obj.translate(ox + r.x + (r.w - bw) / 2 - b[0], oy - r.y - (r.h - bh) / 2 - b[1]);
@@ -1855,8 +2519,30 @@
             cp = copies[p.id];
             piece = cp.piece;
             ls = cp.label ? labelSize[cp.label] : null;
-            slots = Utils.labelSlots(p, piece.w, piece.h, ls && ls.w, ls && ls.h, opts.labelOffset, dir);
             item = piece.instances.shift();
+            if (shapeMode) {
+                // Forma real: el rectángulo de la máscara girado k veces; el
+                // diseño y la etiqueta se ubican por su centro dentro de él.
+                var geo = shapeGeo[cp.key], kq = p.k;
+                var bw = (kq % 2 ? geo.boxH : geo.boxW), bh = (kq % 2 ? geo.boxW : geo.boxH);
+                var bcx = opts.margin + p.x * cellPt + bw / 2, bcy = opts.margin + p.y * cellPt + bh / 2;
+                var dv = Nest.rotVec(geo.dOff[0], geo.dOff[1], kq);
+                if (kq) item.rotate(90 * kq, true, true, true, true, Transformation.CENTER);
+                placeAt(item, bcx + dv[0], bcy + dv[1], sheets[s].x, sheets[s].y);
+                try { item.note = Utils.noteWithLabel(item.note, cp.label); } catch (e) { }
+                if (geo.lOff) {
+                    var lv = Nest.rotVec(geo.lOff[0], geo.lOff[1], kq);
+                    tf = makeLabel(cp.label);
+                    if (kq) tf.rotate(90 * kq, true, true, true, true, Transformation.CENTER);
+                    placeAt(tf, bcx + lv[0], bcy + lv[1], sheets[s].x, sheets[s].y);
+                    if (!sizeCount[cp.label]) { sizeCount[cp.label] = 0; sizeOrder.push(cp.label); }
+                    sizeCount[cp.label]++;
+                }
+                // Área real de la silueta (no de su rectángulo, que se traslapa).
+                sheets[s].usedArea += Nest.maskArea(piece.mask) * cellPt * cellPt;
+                continue;
+            }
+            slots = Utils.labelSlots(p, piece.w, piece.h, ls && ls.w, ls && ls.h, opts.labelOffset, dir);
             if (p.rotated) item.rotate(angle, true, true, true, true, Transformation.CENTER);
             placeCentered(item, slots.design, sheets[s].x, sheets[s].y);
             // La talla queda en la nota del objeto para conservarla si se vuelve a acomodar.
@@ -1928,6 +2614,10 @@
         var parts = [];
         for (i = 0; i < sizeOrder.length; i++) parts.push(sizeOrder[i] + " ×" + sizeCount[sizeOrder[i]]);
         msg += "\nTallas: " + parts.join(", ");
+    }
+    if (shapeMode) {
+        msg += "\nMétodo: forma real (precisión " + SHAPE_CELLS_MM[opts.shapeCell] + " mm)";
+        if (shapeFails) msg += "\n" + shapeFails + " diseño(s) sin silueta legible: se usó su rectángulo.";
     }
     msg += preflightNote;
     if (droppedSheets) {
