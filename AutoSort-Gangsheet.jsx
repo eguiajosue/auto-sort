@@ -1275,6 +1275,32 @@
         return File(folder.fsName + "/" + Utils.safeFileName(name + "_" + sizeLabel) + ".png");
     }
 
+    // ------------------------------ Lienzo ------------------------------
+    // Coloca la mesa de trabajo con el tamaño w x h lo más cerca posible de su
+    // posición actual sin salirse del lienzo. Devuelve el nuevo borde superior
+    // o null. Deja la mesa con su rectángulo original.
+    function fitOnCanvas(abObj, orig, w, h) {
+        var l = orig[0], t = orig[1], ok, bad, mid, n = 0, top = null;
+        function trySet(r) {
+            try { abObj.artboardRect = r; return true; } catch (e) { return false; }
+        }
+        if (trySet([l, t, l + w, t - h])) {
+            top = t;
+        } else if (trySet(orig)) {
+            // Busca el borde inferior del lienzo conservando el borde superior.
+            ok = orig[3];
+            bad = t - h;
+            while (ok - bad > 0.5 && n++ < 40) {
+                mid = (ok + bad) / 2;
+                if (trySet([orig[0], t, orig[2], mid])) ok = mid; else bad = mid;
+            }
+            ok = Math.ceil(ok);
+            if (trySet([l, ok + h, l + w, ok])) top = ok + h;
+        }
+        trySet(orig);
+        return top;
+    }
+
     // ------------------------------ Principal ---------------------------
     var abIndex = doc.artboards.getActiveArtboardIndex();
     var artboard = doc.artboards[abIndex];
@@ -1348,6 +1374,10 @@
         return labelLayer;
     }
 
+    function dropEmptyLabelLayer() {
+        try { if (labelLayer && !labelLayer.pageItems.length) labelLayer.remove(); } catch (e) { }
+    }
+
     function makeLabel(text) {
         var tf = getLabelLayer(true).textFrames.add();
         tf.contents = text;
@@ -1404,6 +1434,49 @@
         progressWin.close();
     }
 
+    // Largo final y ubicación de la hoja, ANTES de mover nada. El lienzo de
+    // Illustrator es un cuadrado fijo (~577 cm) y la mesa de trabajo no puede
+    // salirse de él; si la hoja no cabe hacia abajo, se sube lo necesario.
+    var u = opts.unit, kk = UNITS[u];
+    var sheetW = packOpts.width, sheetH = abH, warn = "", lengthNote = "";
+    var originX = ab[0], originY = ab[1];
+    if (opts.mode === "strip") {
+        sheetH = result.height;
+        if (opts.resize) {
+            var pick = Utils.pickLength(result.height, opts.lengthMode, stdPt, kk);
+            sheetH = pick.length;
+            if (pick.standard) lengthNote = " (tamaño estándar; contenido: " + round(result.height / kk, 2) + " " + u + ")";
+            if (pick.exceeded) lengthNote = " (supera el mayor largo estándar)";
+        }
+        var sizeTxt = round(sheetW / kk, 1) + " x " + round(sheetH / kk, 1) + " " + u;
+        if (sheetW > MAX_CANVAS - 1 || sheetH > MAX_CANVAS - 1) {
+            alert("El acomodo necesita una hoja de " + sizeTxt + ", pero Illustrator admite como máximo " +
+                round(MAX_CANVAS / kk, 1) + " " + u + " por lado.\n\nReduce las copias o divide el pedido en " +
+                "varias hojas. No se modificó nada.", SCRIPT_NAME);
+            dropEmptyLabelLayer();
+            return;
+        }
+        var top = fitOnCanvas(artboard, ab, sheetW, opts.resize ? sheetH : Math.max(sheetH, abH));
+        if (top === null) {
+            alert("No se pudo ubicar una hoja de " + sizeTxt + " dentro del lienzo de Illustrator.\n\n" +
+                "Prueba en un documento nuevo o con la mesa de trabajo más cerca del centro del lienzo. " +
+                "No se modificó nada.", SCRIPT_NAME);
+            dropEmptyLabelLayer();
+            return;
+        }
+        originY = top;
+        if (opts.resize) {
+            artboard.artboardRect = [originX, originY, originX + sheetW, originY - sheetH];
+        } else {
+            // Sin ajustar: la mesa conserva su tamaño, solo se desplaza si hizo falta.
+            artboard.artboardRect = [ab[0], originY, ab[2], originY - abH];
+            if (Math.abs(originY - ab[1]) > 0.5) lengthNote += "\n(La mesa de trabajo se desplazó hacia arriba para que la hoja quepa en el lienzo.)";
+        }
+        if (opts.resize && Math.abs(originY - ab[1]) > 0.5) {
+            lengthNote += "\n(La mesa de trabajo se subió para que la hoja quepa en el lienzo de Illustrator.)";
+        }
+    }
+
     // Crear las copias necesarias ANTES de girar/mover el original.
     var placedCount = [];
     for (i = 0; i < pieces.length; i++) placedCount.push(0);
@@ -1416,7 +1489,6 @@
     // Aplicar posiciones
     var angle = opts.rotation === 2 ? 90 : -90; // Illustrator: positivo = antihorario
     var dir = opts.rotation === 2 ? "ccw" : "cw";
-    var originX = ab[0], originY = ab[1];
 
     // Centra un objeto dentro de un hueco (coordenadas de pantalla relativas a la hoja).
     function placeCentered(obj, r) {
@@ -1468,25 +1540,6 @@
     if (labelLayer) {
         labelLayer.zOrder(ZOrderMethod.BRINGTOFRONT);
         if (!labelLayer.pageItems.length && !usesLabels) labelLayer.remove();
-    }
-
-    // Largo final y mesa de trabajo (modo rollo)
-    var u = opts.unit, kk = UNITS[u];
-    var sheetW = packOpts.width, sheetH = abH, warn = "", lengthNote = "";
-    if (opts.mode === "strip") {
-        sheetH = result.height;
-        if (opts.resize) {
-            var pick = Utils.pickLength(result.height, opts.lengthMode, stdPt, kk);
-            sheetH = pick.length;
-            if (pick.standard) lengthNote = " (tamaño estándar; contenido: " + round(result.height / kk, 2) + " " + u + ")";
-            if (pick.exceeded) lengthNote = " (supera el mayor largo estándar)";
-            if (sheetW > MAX_CANVAS || sheetH > MAX_CANVAS) {
-                warn += "\n\nAVISO: la hoja mide más que el máximo de una mesa de trabajo de Illustrator " +
-                    "(" + round(MAX_CANVAS / kk, 1) + " " + u + "), así que no se ajustó.";
-            } else {
-                artboard.artboardRect = [originX, originY, originX + sheetW, originY - sheetH];
-            }
-        }
     }
 
     // Selección final: los diseños que no cupieron, para localizarlos fácil.
