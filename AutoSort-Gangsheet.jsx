@@ -480,17 +480,30 @@
             for (i = 0; i < 32; ++i) dt.trans[i] = i;
         }
 
+        // Nota: ExtendScript interpreta mal "++"/"--" sobre propiedades dentro
+        // de una expresión (p. ej. "!d.bitcount--"), por eso aquí se usan pasos
+        // explícitos.
         function buildTree(t, lens, off, num) {
-            var i, sum;
+            var i, sum, len;
             for (i = 0; i < 16; ++i) t.table[i] = 0;
-            for (i = 0; i < num; ++i) t.table[lens[off + i]]++;
+            for (i = 0; i < num; ++i) t.table[lens[off + i]] += 1;
             t.table[0] = 0;
             for (sum = 0, i = 0; i < 16; ++i) { offs[i] = sum; sum += t.table[i]; }
-            for (i = 0; i < num; ++i) if (lens[off + i]) t.trans[offs[lens[off + i]]++] = i;
+            for (i = 0; i < num; ++i) {
+                len = lens[off + i];
+                if (len) { t.trans[offs[len]] = i; offs[len] += 1; }
+            }
+        }
+
+        function nextByte(d) {
+            var v = d.s[d.i] | 0;
+            d.i += 1;
+            return v;
         }
 
         function getBit(d) {
-            if (!d.bitcount--) { d.tag = d.s[d.i++] | 0; d.bitcount = 7; }
+            if (d.bitcount === 0) { d.tag = nextByte(d); d.bitcount = 8; }
+            d.bitcount -= 1;
             var bit = d.tag & 1;
             d.tag >>>= 1;
             return bit;
@@ -498,7 +511,7 @@
 
         function readBits(d, num, base) {
             if (!num) return base;
-            while (d.bitcount < 24) { d.tag |= (d.s[d.i++] | 0) << d.bitcount; d.bitcount += 8; }
+            while (d.bitcount < 24) { d.tag |= nextByte(d) << d.bitcount; d.bitcount += 8; }
             var val = d.tag & (0xffff >>> (16 - num));
             d.tag >>>= num;
             d.bitcount -= num;
@@ -506,7 +519,7 @@
         }
 
         function decodeSymbol(d, t) {
-            while (d.bitcount < 24) { d.tag |= (d.s[d.i++] | 0) << d.bitcount; d.bitcount += 8; }
+            while (d.bitcount < 24) { d.tag |= nextByte(d) << d.bitcount; d.bitcount += 8; }
             var sum = 0, cur = 0, len = 0, tag = d.tag;
             do {
                 cur = 2 * cur + (tag & 1);
@@ -559,10 +572,10 @@
 
         function inflateUncompressed(d) {
             var length, i;
-            while (d.bitcount > 8) { d.i--; d.bitcount -= 8; }
+            while (d.bitcount > 8) { d.i -= 1; d.bitcount -= 8; }
             length = 256 * d.s[d.i + 1] + d.s[d.i];
             d.i += 4;
-            for (i = length; i; --i) d.out.push(d.s[d.i++]);
+            for (i = length; i; --i) d.out.push(nextByte(d));
             d.bitcount = 0;
         }
 
@@ -619,7 +632,7 @@
             }
             if (!w || !h) throw new Error("PNG sin encabezado");
             if (depth !== 8 || interlace) throw new Error("PNG no soportado (profundidad " + depth + ")");
-            var ch = { 0: 1, 2: 3, 3: 1, 4: 2, 6: 4 }[ctype];
+            var ch = [1, 0, 3, 1, 2, 0, 4][ctype]; // canales por tipo de color
             if (!ch) throw new Error("PNG: tipo de color " + ctype);
             var raw = inflate(idat), stride = w * ch, prev = zeros(stride), cur, f, x, a, bb, c, pa, pb, pc, pos = 0;
             var alpha = [];
@@ -1311,7 +1324,8 @@
         var st = { minPpi: null, minLine: null, minText: null, text: false, missing: [], nodes: 0, partial: false };
 
         function visit(it) {
-            if (st.nodes++ > PREFLIGHT_MAX_NODES) { st.partial = true; return; }
+            st.nodes += 1;
+            if (st.nodes > PREFLIGHT_MAX_NODES) { st.partial = true; return; }
             try { if (it.hidden) return; } catch (e0) { }
             var i, ppi, size;
             switch (it.typename) {
@@ -2487,7 +2501,7 @@
     var placedCount = [], placedTotal = 0;
     for (i = 0; i < pieces.length; i++) placedCount.push(0);
     for (s = 0; s < sheets.length; s++) {
-        for (i = 0; i < sheets[s].placements.length; i++) placedCount[copies[sheets[s].placements[i].id].piece.idx]++;
+        for (i = 0; i < sheets[s].placements.length; i++) placedCount[copies[sheets[s].placements[i].id].piece.idx] += 1;
         placedTotal += sheets[s].placements.length;
     }
     for (i = 0; i < pieces.length; i++) {
@@ -2536,7 +2550,7 @@
                     if (kq) tf.rotate(90 * kq, true, true, true, true, Transformation.CENTER);
                     placeAt(tf, bcx + lv[0], bcy + lv[1], sheets[s].x, sheets[s].y);
                     if (!sizeCount[cp.label]) { sizeCount[cp.label] = 0; sizeOrder.push(cp.label); }
-                    sizeCount[cp.label]++;
+                    sizeCount[cp.label] += 1;
                 }
                 // Área real de la silueta (no de su rectángulo, que se traslapa).
                 sheets[s].usedArea += Nest.maskArea(piece.mask) * cellPt * cellPt;
@@ -2552,7 +2566,7 @@
                 if (p.rotated) tf.rotate(angle, true, true, true, true, Transformation.CENTER);
                 placeCentered(tf, slots.label, sheets[s].x, sheets[s].y);
                 if (!sizeCount[cp.label]) { sizeCount[cp.label] = 0; sizeOrder.push(cp.label); }
-                sizeCount[cp.label]++;
+                sizeCount[cp.label] += 1;
             }
             sheets[s].usedArea += piece.w * piece.h;
         }

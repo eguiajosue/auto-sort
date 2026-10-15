@@ -4,6 +4,6 @@
   "private": true,
   "description": "Script de Adobe Illustrator para acomodar gangsheets DTF",
   "scripts": {
-    "test": "node test/packer.test.js && node test/nest.test.js && node test/integration.test.js"
+    "test": "node test/extendscript-lint.test.js && node test/packer.test.js && node test/nest.test.js && node test/integration.test.js"
   }
 }
