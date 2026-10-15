@@ -19,6 +19,18 @@ separación entre piezas para poder recortarlas.
     quepa se coloca a la derecha de la mesa de trabajo y queda seleccionado.
 - Separación entre elementos y margen al borde configurables (por defecto **3 mm**),
   en mm, cm o in.
+- **Cantidades por diseño y tallas**: cada diseño puede tener varias filas
+  (p. ej. *Logo · S ×5*, *Logo · M ×10*). Cada copia lleva una **etiqueta
+  discreta** con su talla (XS, S, M, L, XL, 2XL, 3XL, 4XL o texto personalizado)
+  debajo del diseño; su espacio se reserva al acomodar.
+- **Revisión previa (preflight)**: avisa de imágenes con baja resolución a su
+  tamaño real, vínculos rotos, líneas muy finas, textos pequeños y textos sin
+  convertir a contornos.
+- **Largo de la hoja**: exacto, redondeado a unidad entera o el **menor tamaño
+  estándar** donde quepa (lista editable).
+- **Costo estimado** según tu precio por cm, m, in o ft de largo.
+- **Exportar PNG transparente** a la resolución elegida (300 ppi por defecto), en
+  la carpeta del documento, con la medida en el nombre del archivo.
 - Recuerda la última configuración usada.
 
 ## Instalación
@@ -38,7 +50,9 @@ elige el archivo. Puedes asignarle un atajo de teclado con una Acción.
 2. Selecciona las piezas a acomodar (o ninguna, y elige “Todo lo visible y desbloqueado”).
 3. Ejecuta el script, ajusta las opciones y pulsa **Acomodar**.
 
-Opciones:
+La ventana tiene tres pestañas:
+
+**Acomodo**
 
 | Opción | Descripción |
 | --- | --- |
@@ -48,6 +62,38 @@ Opciones:
 | Margen al borde | Espacio entre las piezas y el borde de la hoja. |
 | Rotación | No rotar, o permitir giros; el sentido del giro (horario/antihorario) es elegible. |
 | Calidad | Rápida / Normal / Máxima. Más calidad = prueba más combinaciones (más lento). |
+
+**Cantidades**
+
+Lista de diseños con columnas *Pieza · Tamaño · Talla · Copias*. Selecciona una o
+varias filas y:
+
+- **Asignar copias**: cambia cuántas copias se acomodan (0 = no acomodar).
+- **Asignar talla**: pone la etiqueta elegida a las filas seleccionadas.
+- **Agregar talla**: crea otra fila del mismo diseño con la talla y copias indicadas
+  (así un diseño puede ir en S, M, L... a la vez).
+- **Quitar fila** / **Reiniciar lista**.
+
+Si el nombre de un objeto o grupo (panel Capas) termina en `x10`, toma 10 copias
+automáticamente. La etiqueta usa Arial negro; su tamaño de letra (7 pt por
+defecto) y separación del diseño (1.5 mm) son configurables. Las etiquetas se
+crean en la capa **“Etiquetas de talla”**: ocúltala si no quieres imprimirlas.
+La talla también se guarda en la nota (*Atributos*) de cada copia, así que si
+vuelves a ejecutar el script las copias conservan su talla; las etiquetas
+anteriores de esa mesa de trabajo se reemplazan.
+
+> Importante: la etiqueta se imprime en la película. Al estar separada del diseño
+> puedes recortarla, o ocultar la capa antes de imprimir/exportar.
+
+**Salida**
+
+| Opción | Descripción |
+| --- | --- |
+| Ajustar la mesa de trabajo | Modo rollo: cambia el largo del artboard al resultado. |
+| Largo | Exacto, redondeado a unidad entera o tamaño estándar (lista separada por `;`). |
+| Costo estimado | Precio por cm, m, in o ft de largo (0 = no calcular). |
+| Exportar PNG | PNG transparente a N ppi en la carpeta del documento. |
+| Revisión (preflight) | Resolución mínima (ppi) y grosor mínimo de línea. |
 
 ## Notas
 
@@ -61,6 +107,11 @@ Opciones:
   podrían quedar encimados con el resultado.
 - Illustrator limita una mesa de trabajo a ~577 cm (227 in). Si el rollo es más
   largo, las piezas se acomodan igual pero la mesa de trabajo no se ajusta.
+- Exportar PNG usa *Exportar para pantallas* (Illustrator CC 2018+), y en versiones
+  anteriores *imageCapture*. Hojas muy largas a 300 ppi generan imágenes enormes
+  (58 × 500 cm ≈ 6850 × 59000 px) y pueden tardar o fallar por memoria.
+- La resolución efectiva se calcula para imágenes incrustadas y vinculadas
+  (PNG, JPG, TIFF, PSD…) según su escala en el documento.
 - Con cientos de piezas, la calidad “Máxima” puede tardar varios segundos o más
   (hay barra de progreso).
 
@@ -68,7 +119,8 @@ Opciones:
 
 El motor de acomodo (algoritmo MaxRects con varias heurísticas y órdenes, más
 búsqueda binaria del largo mínimo) está entre los marcadores `PACKER START` /
-`PACKER END` del `.jsx` y no depende de Illustrator. Las pruebas lo ejecutan en Node:
+`PACKER END` del `.jsx`, y las utilidades puras entre `UTILS START` / `UTILS END`;
+ninguno depende de Illustrator. Las pruebas lo ejecutan en Node:
 
 ```sh
 npm test
