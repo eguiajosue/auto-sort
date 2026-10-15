@@ -1,0 +1,9 @@
+{
+  "name": "auto-sort-gangsheet",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Script de Adobe Illustrator para acomodar gangsheets DTF",
+  "scripts": {
+    "test": "node test/packer.test.js"
+  }
+}
