@@ -19,6 +19,10 @@ separación entre piezas para poder recortarlas.
     quepa se coloca a la derecha de la mesa de trabajo y queda seleccionado.
 - Separación entre elementos y margen al borde configurables (por defecto **3 mm**),
   en mm, cm o in.
+- **Varias hojas**: si no cabe todo, continúa en mesas de trabajo nuevas
+  (*Gangsheet - Hoja 2, 3…*) a la derecha. En modo rollo eliges el largo máximo
+  por hoja y la última se acorta al mínimo; en modo mesa de trabajo cada hoja nueva
+  tiene el tamaño de la actual.
 - **Cantidades por diseño y tallas**: cada diseño puede tener varias filas
   (p. ej. *Logo · S ×5*, *Logo · M ×10*). Cada copia lleva una **etiqueta
   discreta** con su talla (XS, S, M, L, XL, 2XL, 3XL, 4XL o texto personalizado)
@@ -62,17 +66,26 @@ La ventana tiene tres pestañas:
 | Margen al borde | Espacio entre las piezas y el borde de la hoja. |
 | Rotación | No rotar, o permitir giros; el sentido del giro (horario/antihorario) es elegible. |
 | Calidad | Rápida / Normal / Máxima. Más calidad = prueba más combinaciones (más lento). |
+| Varias hojas | Continúa en hojas nuevas si no cabe todo; largo máximo por hoja (rollo) y máximo de hojas. |
 
 **Cantidades**
 
 Lista de diseños con columnas *Pieza · Tamaño · Talla · Copias*. Selecciona una o
 varias filas y:
 
+- **Tallas por diseño…**: abre una ventana con XS, S, M, L, XL, 2XL, 3XL, 4XL,
+  “sin etiqueta” y 3 tallas personalizadas; escribe cuántas copias de cada una y
+  se crean todas las filas de ese diseño de una vez (también sirve con varios
+  diseños seleccionados).
 - **Asignar copias**: cambia cuántas copias se acomodan (0 = no acomodar).
 - **Asignar talla**: pone la etiqueta elegida a las filas seleccionadas.
 - **Agregar talla**: crea otra fila del mismo diseño con la talla y copias indicadas
   (así un diseño puede ir en S, M, L... a la vez).
 - **Quitar fila** / **Reiniciar lista**.
+
+Con **“Mostrar en el lienzo la pieza seleccionada”** activado, al elegir una fila
+de la lista se selecciona y centra esa pieza en el documento para identificarla.
+Si cancelas, se restaura tu selección original.
 
 Si el nombre de un objeto o grupo (panel Capas) termina en `x10`, toma 10 copias
 automáticamente. La etiqueta usa Arial negro; su tamaño de letra (7 pt por
@@ -105,8 +118,13 @@ anteriores de esa mesa de trabajo se reemplazan.
 - Los objetos bloqueados, ocultos o en capas bloqueadas/ocultas se ignoran. En modo
   “Selección”, el resto de objetos del documento no se toma en cuenta, así que
   podrían quedar encimados con el resultado.
-- Illustrator limita una mesa de trabajo a ~577 cm (227 in). Si el rollo es más
-  largo, las piezas se acomodan igual pero la mesa de trabajo no se ajusta.
+- El lienzo de Illustrator mide ~577 × 577 cm y ninguna mesa de trabajo puede
+  salirse de él. Si la hoja no cabe hacia abajo, el script sube la mesa de trabajo;
+  si es más larga que el lienzo, avisa (sin modificar nada) y sugiere activar
+  **Varias hojas**. Las hojas que ya no quepan en el lienzo se descartan y se avisa.
+- Con **Varias hojas**, al volver a ejecutar el script se eliminan las hojas
+  *Gangsheet - Hoja N* creadas antes (y sus etiquetas) para generarlas de nuevo.
+- Se exporta un PNG por hoja (`_hoja1`, `_hoja2`…).
 - Exportar PNG usa *Exportar para pantallas* (Illustrator CC 2018+), y en versiones
   anteriores *imageCapture*. Hojas muy largas a 300 ppi generan imágenes enormes
   (58 × 500 cm ≈ 6850 × 59000 px) y pueden tardar o fallar por memoria.
@@ -125,3 +143,7 @@ ninguno depende de Illustrator. Las pruebas lo ejecutan en Node:
 ```sh
 npm test
 ```
+
+`test/integration.test.js` ejecuta el script completo contra una simulación del
+DOM de Illustrator y de ScriptUI (`test/illustrator-mock.js`), incluidos los
+límites del lienzo, para probar diálogos, copias, tallas y varias hojas.

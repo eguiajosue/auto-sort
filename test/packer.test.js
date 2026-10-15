@@ -141,6 +141,58 @@ test("rendimiento: 250 piezas, calidad normal", () => {
   console.log(`    largo ${(res.height / MM / 10).toFixed(1)} cm, uso ${usage(items, res, opts.width, res.height)}`);
 });
 
+// ------------------------------- Varias hojas ------------------------------
+function verifySheets(items, res, opts) {
+  const seen = new Set();
+  res.sheets.forEach((sh, n) => {
+    assert(sh.placements.length > 0, "hoja vacía " + n);
+    assert(sh.height <= opts.height + EPS, "hoja más larga que el máximo");
+    verify(items.filter((it) => sh.placements.some((p) => p.id === it.id)),
+      { placements: sh.placements, unplaced: [] }, opts, sh.height);
+    sh.placements.forEach((p) => { assert(!seen.has(p.id), "pieza en dos hojas"); seen.add(p.id); });
+  });
+  res.unplaced.forEach((id) => assert(!seen.has(id)));
+  assert.strictEqual(seen.size + res.unplaced.length, items.length, "faltan piezas");
+}
+
+test("varias hojas (rollo 58 x 300 cm): 85 piezas de 10 x 25 cm", () => {
+  const items = Array.from({ length: 85 }, (_, i) => ({ id: i, w: 100.48 * MM, h: 250.48 * MM }));
+  const opts = { width: 580 * MM, height: 3000 * MM, gap: 3 * MM, margin: 3 * MM, allowRotate: true, quality: "normal", strip: true };
+  const res = Packer.packSheets(items, opts);
+  verifySheets(items, res, opts);
+  assert.strictEqual(res.unplaced.length, 0);
+  assert(res.sheets.length >= 2);
+  const last = res.sheets[res.sheets.length - 1];
+  console.log(`    ${res.sheets.length} hojas; largos: ${res.sheets.map((s) => (s.height / MM / 10).toFixed(1)).join(", ")} cm`);
+  assert(last.height < opts.height, "la última hoja debe acortarse");
+});
+
+test("varias hojas (mesa fija 50 x 70 cm), piezas al azar y una que nunca cabe", () => {
+  const items = randomItems(120, 3, 30, 180);
+  items.push({ id: 120, w: 900 * MM, h: 900 * MM });
+  const opts = { width: 500 * MM, height: 700 * MM, gap: 3 * MM, margin: 5 * MM, allowRotate: true, quality: "fast" };
+  const res = Packer.packSheets(items, opts);
+  verifySheets(items, res, opts);
+  assert.deepStrictEqual(res.unplaced, [120]);
+  console.log(`    ${res.sheets.length} hojas`);
+});
+
+test("varias hojas: todo cabe en una sola hoja corta", () => {
+  const items = randomItems(10, 5, 30, 80);
+  const opts = { width: 580 * MM, height: 3000 * MM, gap: 3 * MM, margin: 3 * MM, allowRotate: true, quality: "normal", strip: true };
+  const res = Packer.packSheets(items, opts);
+  verifySheets(items, res, opts);
+  assert.strictEqual(res.sheets.length, 1);
+});
+
+test("varias hojas: respeta el máximo de hojas", () => {
+  const items = Array.from({ length: 50 }, (_, i) => ({ id: i, w: 200 * MM, h: 200 * MM }));
+  const opts = { width: 210 * MM, height: 210 * MM, gap: 3 * MM, margin: 3 * MM, allowRotate: false, quality: "fast", maxSheets: 4 };
+  const res = Packer.packSheets(items, opts);
+  assert.strictEqual(res.sheets.length, 4);
+  assert.strictEqual(res.unplaced.length, 46);
+});
+
 // ------------------------------- Utilidades -------------------------------
 test("parseList: separadores y decimales con coma", () => {
   assert.deepStrictEqual(Utils.parseList("100; 50 150, 200"), [50, 100, 150, 200]);

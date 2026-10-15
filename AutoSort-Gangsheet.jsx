@@ -346,6 +346,22 @@
         // Modo mesa de trabajo: ancho y alto fijos
         // opts: {width, height, gap, margin, allowRotate, quality, onProgress}
         // ---------------------------------------------------------------
+        // Mejor resultado en hoja fija: más piezas (o más área si preferArea,
+        // útil al llenar hojas sucesivas) y, a igualdad, menos alto usado.
+        function fixedBetter(a, b, preferArea) {
+            var na = a.placed.length, nb = b.placed.length;
+            if (preferArea) {
+                if (a.area > b.area + EPS) return true;
+                if (a.area < b.area - EPS) return false;
+                if (na !== nb) return na > nb;
+            } else {
+                if (na !== nb) return na > nb;
+                if (a.area > b.area + EPS) return true;
+                if (a.area < b.area - EPS) return false;
+            }
+            return a.usedH < b.usedH - EPS;
+        }
+
         function packFixed(items, opts) {
             var gap = opts.gap || 0, margin = opts.margin || 0;
             var binW = opts.width - 2 * margin + gap;
@@ -356,18 +372,72 @@
             var combos = buildCombos(opts.quality, opts.allowRotate, true), best = null, res, c;
             for (c = 0; c < combos.length; c++) {
                 res = run(prep.rects, binW, binH, combos[c], prep.minDim, false);
-                if (!best ||
-                    res.placed.length > best.placed.length ||
-                    (res.placed.length === best.placed.length && res.area > best.area + EPS) ||
-                    (res.placed.length === best.placed.length && Math.abs(res.area - best.area) <= EPS && res.usedH < best.usedH - EPS)) {
-                    best = res;
-                }
+                if (!best || fixedBetter(res, best, opts.preferArea)) best = res;
                 progress(opts, c + 1, combos.length, "Probando acomodos");
             }
             return toResult(best, margin, gap, opts.height, prep.tooBig);
         }
 
-        return { packStrip: packStrip, packFixed: packFixed, Bin: Bin };
+        // ---------------------------------------------------------------
+        // Varias hojas: llena hojas de width x height una tras otra con lo
+        // que no cupo en la anterior.
+        // opts: {width, height, gap, margin, allowRotate, quality, strip,
+        //        maxSheets, onProgress}
+        // strip = true: la última hoja se acorta al largo mínimo y cada hoja
+        //               reporta su largo usado.
+        // Devuelve {sheets: [{placements, height}], unplaced: [ids]}
+        // ---------------------------------------------------------------
+        function packSheets(items, opts) {
+            var gap = opts.gap || 0, margin = opts.margin || 0;
+            var binW = opts.width - 2 * margin + gap, binH = opts.height - 2 * margin + gap;
+            var remaining = items.slice(0), sheets = [], maxSheets = opts.maxSheets || 100;
+            var res, i, area, left, sub, k, maxBottom, n;
+
+            function subOpts(n) {
+                var o = {}, key;
+                for (key in opts) if (opts.hasOwnProperty(key)) o[key] = opts[key];
+                o.preferArea = true;
+                o.onProgress = function (d, t, m) {
+                    if (opts.onProgress) opts.onProgress(d, t, "Hoja " + n + ": " + m);
+                };
+                return o;
+            }
+
+            while (remaining.length && sheets.length < maxSheets) {
+                n = sheets.length + 1;
+                sub = subOpts(n);
+                if (opts.strip) {
+                    // ¿Cabe todo lo que queda en una hoja más corta? (solo si el
+                    // área lo permite, para no gastar tiempo)
+                    area = 0;
+                    for (i = 0; i < remaining.length; i++) area += (remaining[i].w + gap) * (remaining[i].h + gap);
+                    if (area / binW <= binH + EPS) {
+                        res = packStrip(remaining, sub);
+                        if (res.height <= opts.height + EPS && res.placements.length) {
+                            sheets.push({ placements: res.placements, height: res.height });
+                            return { sheets: sheets, unplaced: res.unplaced };
+                        }
+                    }
+                }
+                res = packFixed(remaining, sub);
+                if (!res.placements.length) break;
+                maxBottom = 0;
+                for (i = 0; i < res.placements.length; i++) {
+                    if (res.placements[i].y + res.placements[i].h > maxBottom) maxBottom = res.placements[i].y + res.placements[i].h;
+                }
+                sheets.push({ placements: res.placements, height: opts.strip ? maxBottom + margin : opts.height });
+                left = {};
+                for (i = 0; i < res.unplaced.length; i++) left[res.unplaced[i]] = true;
+                k = [];
+                for (i = 0; i < remaining.length; i++) if (left[remaining[i].id]) k.push(remaining[i]);
+                remaining = k;
+            }
+            var ids = [];
+            for (i = 0; i < remaining.length; i++) ids.push(remaining[i].id);
+            return { sheets: sheets, unplaced: ids };
+        }
+
+        return { packStrip: packStrip, packFixed: packFixed, packSheets: packSheets, Bin: Bin };
     })();
     // === PACKER END ===
 
@@ -504,6 +574,8 @@
     var MIN_TEXT_PT = 6;
     var PREFLIGHT_MAX_NODES = 20000;
     var LABEL_LAYER = "Etiquetas de talla";
+    var SHEET_PREFIX = "Gangsheet - Hoja ";
+    var SHEET_GAP = 56.69; // pt (2 cm) entre hojas
     var SIZE_PRESETS = ["(sin etiqueta)", "XS", "S", "M", "L", "XL", "2XL", "3XL", "4XL", "Personalizada..."];
     var CONFIG_FILE = File(Folder.userData + "/AutoSortGangsheetDTF.cfg");
     var TYPE_LABELS = {
@@ -529,7 +601,8 @@
             price: 0, priceUnit: "m", currency: "$",
             exportPng: false, ppi: 300,
             preflight: true, minPpi: 300, minLine: 0.5 * UNITS.mm,
-            labelPt: 7, labelOffset: 1.5 * UNITS.mm
+            labelPt: 7, labelOffset: 1.5 * UNITS.mm,
+            multiSheet: false, maxLength: 300 * UNITS.cm, maxSheets: 20, showOnCanvas: true
         };
         try {
             if (CONFIG_FILE.exists && CONFIG_FILE.open("r")) {
@@ -772,6 +845,89 @@
         return w.show() === 1;
     }
 
+    // ------------------------- Diálogo de tallas ------------------------
+    // current: [{label, qty}]. Devuelve [{label, qty}] (qty > 0) o null si se cancela.
+    function sizesDialog(title, current) {
+        var d = new Window("dialog", "Tallas \u2014 " + title);
+        d.alignChildren = "fill";
+        d.add("statictext", undefined, "Copias por talla (vacío o 0 = ninguna):");
+        var grid = d.add("panel");
+        grid.orientation = "row";
+        grid.alignChildren = "top";
+        var cols = [grid.add("group"), grid.add("group")];
+        cols[0].orientation = cols[1].orientation = "column";
+        cols[0].alignChildren = cols[1].alignChildren = "right";
+
+        var labels = [""].concat(SIZE_PRESETS.slice(1, SIZE_PRESETS.length - 1)), entries = [], i, j, g, st, e;
+        for (i = 0; i < labels.length; i++) {
+            g = cols[i < Math.ceil(labels.length / 2) ? 0 : 1].add("group");
+            st = g.add("statictext", undefined, labels[i] || "Sin etiqueta");
+            st.preferredSize.width = 80;
+            e = g.add("edittext", undefined, "");
+            e.characters = 5;
+            entries.push({ label: labels[i], edit: e });
+        }
+        var pCustom = d.add("panel", undefined, "Personalizadas (texto libre)");
+        pCustom.alignChildren = "left";
+        var customs = [];
+        for (i = 0; i < 3; i++) {
+            g = pCustom.add("group");
+            var el = g.add("edittext", undefined, "");
+            el.characters = 12;
+            g.add("statictext", undefined, "copias:");
+            var eq = g.add("edittext", undefined, "");
+            eq.characters = 5;
+            customs.push({ labelEdit: el, edit: eq });
+        }
+
+        // Valores actuales
+        var nextCustom = 0, found;
+        for (i = 0; i < current.length; i++) {
+            found = false;
+            for (j = 0; j < entries.length; j++) {
+                if (entries[j].label === current[i].label) { entries[j].edit.text = String(current[i].qty); found = true; }
+            }
+            if (!found && nextCustom < customs.length) {
+                customs[nextCustom].labelEdit.text = current[i].label;
+                customs[nextCustom].edit.text = String(current[i].qty);
+                nextCustom++;
+            }
+        }
+
+        var gb = d.add("group");
+        gb.alignment = "right";
+        gb.add("button", undefined, "Cancelar", { name: "cancel" });
+        var ok = gb.add("button", undefined, "Aceptar", { name: "ok" });
+        var result = null;
+
+        function readQty(edit, what) {
+            var t = Utils.trim(edit.text), q;
+            if (!t) return 0;
+            q = parseInt(t, 10);
+            if (isNaN(q) || q < 0 || String(q) !== t) { alert("Cantidad no válida para " + what + ": \"" + t + "\""); return null; }
+            return q;
+        }
+
+        ok.onClick = function () {
+            var out = [], q, lab, k;
+            for (k = 0; k < entries.length; k++) {
+                q = readQty(entries[k].edit, entries[k].label || "Sin etiqueta");
+                if (q === null) return;
+                if (q > 0) out.push({ label: entries[k].label, qty: q });
+            }
+            for (k = 0; k < customs.length; k++) {
+                lab = Utils.trim(customs[k].labelEdit.text);
+                q = readQty(customs[k].edit, lab || "personalizada");
+                if (q === null) return;
+                if (q > 0 && !lab) { alert("Escribe el texto de la talla personalizada."); return; }
+                if (q > 0) out.push({ label: lab, qty: q });
+            }
+            result = out;
+            d.close(1);
+        };
+        return d.show() === 1 ? result : null;
+    }
+
     // ------------------------------ Diálogo -----------------------------
     function showDialog(cfg, info) {
         var unit = cfg.unit;
@@ -819,6 +975,17 @@
         var rowW = numRow(pSheet, "    Ancho de la hoja:", round(cfg.width / UNITS[unit], 3));
         var rbFixed = pSheet.add("radiobutton", undefined, "");
 
+        var pMulti = tArr.add("panel", undefined, "Varias hojas");
+        pMulti.alignChildren = "left";
+        var cbMulti = pMulti.add("checkbox", undefined, "Si no cabe todo, continuar en hojas nuevas (mesas de trabajo a la derecha)");
+        cbMulti.value = cfg.multiSheet;
+        var rowMaxLen = numRow(pMulti, "    Largo máximo por hoja (rollo):", round(cfg.maxLength / UNITS[unit], 2), 190);
+        var gMaxSheets = pMulti.add("group");
+        gMaxSheets.add("statictext", undefined, "    Máximo de hojas:").preferredSize.width = 190;
+        var etMaxSheets = gMaxSheets.add("edittext", undefined, String(cfg.maxSheets));
+        etMaxSheets.characters = 5;
+        pMulti.add("statictext", undefined, "    En modo mesa de trabajo, cada hoja nueva tiene el tamaño de la actual.");
+
         var pGap = tArr.add("panel", undefined, "Separación para recorte");
         pGap.alignChildren = "left";
         var rowGap = numRow(pGap, "Entre elementos:", round(cfg.gap / UNITS[unit], 3));
@@ -854,12 +1021,15 @@
             columnTitles: ["Pieza", "Tamaño", "Talla", "Copias"], columnWidths: [220, 130, 70, 55]
         });
         lb.preferredSize = [500, 240];
+        var cbShow = tQty.add("checkbox", undefined, "Mostrar en el lienzo la pieza seleccionada en la lista");
+        cbShow.value = cfg.showOnCanvas !== false;
 
         var gQ1 = tQty.add("group");
         gQ1.add("statictext", undefined, "Copias:");
         var etQty = gQ1.add("edittext", undefined, "1");
         etQty.characters = 5;
         var btnQty = gQ1.add("button", undefined, "Asignar copias");
+        var btnSizes = gQ1.add("button", undefined, "Tallas por diseño...");
         var btnReset = gQ1.add("button", undefined, "Reiniciar lista");
 
         var gQ2 = tQty.add("group");
@@ -1020,6 +1190,54 @@
             if (rbSel.value) rowsSel = makeRows(info.sel); else rowsAll = makeRows(info.all);
             fillList();
         };
+
+        // Diseños (sin repetir) de las filas seleccionadas.
+        function selectedPieces(idx) {
+            var rows = currentRows(), out = [], i, j, dup;
+            for (i = 0; i < idx.length; i++) {
+                dup = false;
+                for (j = 0; j < out.length; j++) if (out[j] === rows[idx[i]].piece) dup = true;
+                if (!dup) out.push(rows[idx[i]].piece);
+            }
+            return out;
+        }
+
+        function containsPiece(list, piece) {
+            for (var i = 0; i < list.length; i++) if (list[i] === piece) return true;
+            return false;
+        }
+
+        // Varias tallas de uno o más diseños en un solo paso.
+        btnSizes.onClick = function () {
+            var idx = needSelection(), rows = currentRows(), designs, current = [], list, out = [], done = [], sel = [], i, j;
+            if (!idx.length) return;
+            designs = selectedPieces(idx);
+            for (i = 0; i < rows.length; i++) {
+                if (rows[i].piece === designs[0] && rows[i].qty > 0) current.push({ label: rows[i].label, qty: rows[i].qty });
+            }
+            // La fila por defecto (1 copia sin talla) no se precarga: si no, al
+            // capturar tallas quedaría una copia extra sin etiqueta.
+            if (current.length === 1 && !current[0].label && current[0].qty === 1) current = [];
+            list = sizesDialog(designs.length === 1 ? designs[0].name : designs.length + " diseños", current);
+            if (!list) return;
+            for (i = 0; i < rows.length; i++) {
+                if (!containsPiece(designs, rows[i].piece)) { out.push(rows[i]); continue; }
+                if (containsPiece(done, rows[i].piece)) continue;
+                done.push(rows[i].piece);
+                if (!list.length) out.push({ piece: rows[i].piece, label: "", qty: 0 });
+                for (j = 0; j < list.length; j++) out.push({ piece: rows[i].piece, label: list[j].label, qty: list[j].qty });
+            }
+            setCurrentRows(out);
+            for (i = 0; i < out.length; i++) if (containsPiece(designs, out[i].piece)) sel.push(i);
+            fillList(sel);
+        };
+
+        // Al seleccionar filas, se resalta la pieza en el documento.
+        lb.onChange = function () {
+            if (!cbShow.value || !info.highlight) return;
+            var idx = selectedIndexes();
+            if (idx.length) info.highlight(selectedPieces(idx));
+        };
         rbSel.onClick = function () { rbAll.value = false; fillList(); };
         rbAll.onClick = function () { rbSel.value = false; fillList(); };
 
@@ -1089,6 +1307,8 @@
         function syncMode() {
             var strip = rbStrip.value;
             rowW.group.enabled = strip;
+            rowMaxLen.group.enabled = strip && cbMulti.value;
+            gMaxSheets.enabled = cbMulti.value;
             pLen.enabled = strip;
             gLen.enabled = gStd.enabled = cbResize.value;
             gStd.enabled = cbResize.value && ddLen.selection.index === 2;
@@ -1097,11 +1317,11 @@
         }
         rbStrip.onClick = function () { rbFixed.value = false; syncMode(); };
         rbFixed.onClick = function () { rbStrip.value = false; syncMode(); };
-        cbResize.onClick = cbExport.onClick = cbPre.onClick = syncMode;
+        cbResize.onClick = cbExport.onClick = cbPre.onClick = cbMulti.onClick = syncMode;
         ddLen.onChange = syncMode;
         if (cfg.mode === "fixed") rbFixed.value = true; else rbStrip.value = true;
 
-        var convRows = [rowW.edit, rowGap.edit, rowMargin.edit, etMinLine, etLabelOff];
+        var convRows = [rowW.edit, rowGap.edit, rowMargin.edit, etMinLine, etLabelOff, rowMaxLen.edit];
         ddUnit.onChange = function () {
             var nu = UNIT_NAMES[ddUnit.selection.index], f = UNITS[unit] / UNITS[nu], i, v, list;
             for (i = 0; i < convRows.length; i++) {
@@ -1131,12 +1351,20 @@
             var minPpi = parseNum(etMinPpi.text), minLine = parseNum(etMinLine.text);
             var std = Utils.parseList(etStd.text), i, total = 0, rows = currentRows();
             var labelPt = parseNum(etLabelPt.text), labelOff = parseNum(etLabelOff.text);
+            var maxLen = parseNum(rowMaxLen.edit.text), maxSheets = parseInt(etMaxSheets.text, 10);
             if (!rbSel.value && !rbAll.value) { alert("Elige qué elementos acomodar."); return; }
             for (i = 0; i < rows.length; i++) total += rows[i].qty;
             if (!total) { alert("Todas las piezas tienen 0 copias."); return; }
             if (labelPt === null || labelPt < 2 || labelPt > 200) { alert("El tamaño de letra de la etiqueta no es válido."); return; }
             if (labelOff === null || labelOff < 0) { alert("La separación de la etiqueta no es válida."); return; }
             if (rbStrip.value && (width === null || width <= 0)) { alert("El ancho de la hoja no es válido."); return; }
+            if (cbMulti.value) {
+                if (isNaN(maxSheets) || maxSheets < 1) { alert("El máximo de hojas no es válido."); return; }
+                if (rbStrip.value && (maxLen === null || maxLen <= 0 || maxLen * k > MAX_CANVAS - 1)) {
+                    alert("El largo máximo por hoja debe ser mayor que 0 y como máximo " + round((MAX_CANVAS - 1) / k, 1) + " " + unit + " (límite de Illustrator).");
+                    return;
+                }
+            }
             if (gap === null || gap < 0) { alert("La separación entre elementos no es válida."); return; }
             if (margin === null || margin < 0) { alert("El margen al borde no es válido."); return; }
             if (price === null || price < 0) { alert("El precio no es válido."); return; }
@@ -1171,6 +1399,10 @@
                 minLine: minLine === null ? cfg.minLine : minLine * k,
                 labelPt: labelPt,
                 labelOffset: labelOff * k,
+                multiSheet: cbMulti.value,
+                maxLength: maxLen === null ? cfg.maxLength : maxLen * k,
+                maxSheets: isNaN(maxSheets) ? cfg.maxSheets : maxSheets,
+                showOnCanvas: cbShow.value,
                 rows: rows
             };
             w.close(1);
@@ -1262,7 +1494,9 @@
         return file.exists ? { file: file } : { error: err || "error desconocido" };
     }
 
-    function exportTarget(sizeLabel) {
+    // Carpeta y nombre base para los PNG (pregunta la carpeta si el documento
+    // no se ha guardado).
+    function exportBase() {
         var folder = null, name = "gangsheet";
         try {
             folder = doc.path && String(doc.path) !== "" ? Folder(doc.path) : null;
@@ -1272,7 +1506,7 @@
             folder = Folder.selectDialog("¿Dónde guardar el PNG?");
             if (!folder) return null;
         }
-        return File(folder.fsName + "/" + Utils.safeFileName(name + "_" + sizeLabel) + ".png");
+        return { folder: folder, name: name };
     }
 
     // ------------------------------ Lienzo ------------------------------
@@ -1318,8 +1552,42 @@
     if (!cfg.width) cfg.width = abW;
     if (!selPieces.length) cfg.source = "all";
 
-    var opts = showDialog(cfg, { sel: selPieces, all: allPieces, abW: abW, abH: abH });
-    if (!opts) return;
+    // Selección y vista originales, para restaurarlas si se cancela.
+    var origSel = [], origView = null;
+    try {
+        var cs0 = doc.selection;
+        if (cs0 && !cs0.typename) for (i = 0; i < cs0.length; i++) origSel.push(cs0[i]);
+        origView = { center: doc.activeView.centerPoint, zoom: doc.activeView.zoom };
+    } catch (e) { }
+
+    // Resalta en el documento las piezas elegidas en la lista de cantidades.
+    function highlightPieces(list) {
+        try {
+            var b = null, k;
+            doc.selection = null;
+            for (k = 0; k < list.length; k++) {
+                list[k].item.selected = true;
+                b = union(b, getBounds(list[k].item));
+            }
+            if (b) doc.activeView.centerPoint = [(b[0] + b[2]) / 2, (b[1] + b[3]) / 2];
+            app.redraw();
+        } catch (e) { }
+    }
+
+    function restoreSelection() {
+        try {
+            doc.selection = null;
+            for (var k = 0; k < origSel.length; k++) origSel[k].selected = true;
+            if (origView) {
+                doc.activeView.zoom = origView.zoom;
+                doc.activeView.centerPoint = origView.center;
+            }
+        } catch (e) { }
+    }
+
+    var opts = showDialog(cfg, { sel: selPieces, all: allPieces, abW: abW, abH: abH, highlight: highlightPieces });
+    if (!opts) { restoreSelection(); return; }
+    restoreSelection();
     var stdPt = opts.stdPt, rows = opts.rows;
     delete opts.stdPt;
     delete opts.rows;
@@ -1398,13 +1666,15 @@
         }
     }
 
-    // Quita las etiquetas de una ejecución anterior sobre esta mesa de trabajo.
-    if (getLabelLayer(false)) {
-        for (i = labelLayer.pageItems.length - 1; i >= 0; i--) {
-            var lbb = labelLayer.pageItems[i].visibleBounds;
-            if (lbb[0] < ab[2] && lbb[2] > ab[0] && lbb[3] < ab[1] && lbb[1] > ab[3]) labelLayer.pageItems[i].remove();
+    // Quita las etiquetas de una ejecución anterior que estén sobre un rectángulo.
+    function removeLabelsIn(r) {
+        if (!getLabelLayer(false)) return;
+        for (var k = labelLayer.pageItems.length - 1; k >= 0; k--) {
+            var lbb = labelLayer.pageItems[k].visibleBounds;
+            if (lbb[0] < r[2] && lbb[2] > r[0] && lbb[3] < r[1] && lbb[1] > r[3]) labelLayer.pageItems[k].remove();
         }
     }
+    removeLabelsIn(ab);
 
     // Cada copia es un rectángulo independiente (diseño + etiqueta).
     var copies = [], packItems = [], sz, ls;
@@ -1414,6 +1684,21 @@
         for (j = 0; j < rows[i].qty; j++) {
             packItems.push({ id: copies.length, w: sz.w, h: sz.h });
             copies.push({ piece: rows[i].piece, label: rows[i].label });
+        }
+    }
+
+    // Revisión rápida: en modo rollo de una sola hoja, si el área total ya
+    // excede el lienzo de Illustrator no vale la pena calcular el acomodo.
+    if (opts.mode === "strip" && !opts.multiSheet) {
+        var binW0 = opts.width - 2 * opts.margin + opts.gap, area0 = 0;
+        for (i = 0; i < packItems.length; i++) area0 += (packItems[i].w + opts.gap) * (packItems[i].h + opts.gap);
+        if (binW0 > 0 && area0 / binW0 - opts.gap + 2 * opts.margin > MAX_CANVAS - 1) {
+            alert("Las " + packItems.length + " piezas necesitan como mínimo " +
+                round((area0 / binW0 - opts.gap + 2 * opts.margin) / UNITS[opts.unit], 1) + " " + opts.unit +
+                " de largo, y Illustrator admite como máximo " + round(MAX_CANVAS / UNITS[opts.unit], 1) + " " + opts.unit +
+                ".\n\nActiva \"Varias hojas\" (pestaña Acomodo) o reduce las copias. No se modificó nada.", SCRIPT_NAME);
+            dropEmptyLabelLayer();
+            return;
         }
     }
 
@@ -1427,36 +1712,55 @@
         quality: ["fast", "normal", "best"][opts.quality],
         onProgress: function (d, t, m) { progressWin.update(d, t, m); }
     };
-    var result;
+    // sheets: [{placements, height}] — una entrada por hoja.
+    var sheets = [], res;
     try {
-        result = opts.mode === "strip" ? Packer.packStrip(packItems, packOpts) : Packer.packFixed(packItems, packOpts);
+        if (opts.multiSheet) {
+            packOpts.height = opts.mode === "strip" ? opts.maxLength : abH;
+            packOpts.strip = opts.mode === "strip";
+            packOpts.maxSheets = opts.maxSheets;
+            res = Packer.packSheets(packItems, packOpts);
+            sheets = res.sheets;
+        } else {
+            res = opts.mode === "strip" ? Packer.packStrip(packItems, packOpts) : Packer.packFixed(packItems, packOpts);
+            if (res.placements.length) sheets = [{ placements: res.placements, height: res.height }];
+        }
     } finally {
         progressWin.close();
     }
 
-    // Largo final y ubicación de la hoja, ANTES de mover nada. El lienzo de
-    // Illustrator es un cuadrado fijo (~577 cm) y la mesa de trabajo no puede
+    // Tamaño final de cada hoja y ubicación, ANTES de mover nada. El lienzo de
+    // Illustrator es un cuadrado fijo (~577 cm) y una mesa de trabajo no puede
     // salirse de él; si la hoja no cabe hacia abajo, se sube lo necesario.
     var u = opts.unit, kk = UNITS[u];
-    var sheetW = packOpts.width, sheetH = abH, warn = "", lengthNote = "";
-    var originX = ab[0], originY = ab[1];
-    if (opts.mode === "strip") {
-        sheetH = result.height;
-        if (opts.resize) {
-            var pick = Utils.pickLength(result.height, opts.lengthMode, stdPt, kk);
-            sheetH = pick.length;
-            if (pick.standard) lengthNote = " (tamaño estándar; contenido: " + round(result.height / kk, 2) + " " + u + ")";
-            if (pick.exceeded) lengthNote = " (supera el mayor largo estándar)";
+    var sheetW = packOpts.width, lengthNote = "", s, pick, maxH = 0;
+    var sized = opts.mode === "strip" && (opts.resize || opts.multiSheet);
+    for (s = 0; s < sheets.length; s++) {
+        sheets[s].contentH = sheets[s].height;
+        if (opts.mode === "fixed") {
+            sheets[s].h = abH;
+        } else if (sized) {
+            pick = Utils.pickLength(sheets[s].height, opts.lengthMode, stdPt, kk);
+            sheets[s].h = pick.length;
+            if (opts.multiSheet && sheets[s].h > opts.maxLength) sheets[s].h = Math.max(opts.maxLength, sheets[s].height);
+            sheets[s].standard = pick.standard && sheets[s].h === pick.length;
+        } else {
+            sheets[s].h = sheets[s].height;
         }
-        var sizeTxt = round(sheetW / kk, 1) + " x " + round(sheetH / kk, 1) + " " + u;
-        if (sheetW > MAX_CANVAS - 1 || sheetH > MAX_CANVAS - 1) {
+        if (sheets[s].h > maxH) maxH = sheets[s].h;
+    }
+
+    var originX = ab[0], originY = ab[1];
+    if (sheets.length && opts.mode === "strip") {
+        var sizeTxt = round(sheetW / kk, 1) + " x " + round(maxH / kk, 1) + " " + u;
+        if (sheetW > MAX_CANVAS - 1 || maxH > MAX_CANVAS - 1) {
             alert("El acomodo necesita una hoja de " + sizeTxt + ", pero Illustrator admite como máximo " +
-                round(MAX_CANVAS / kk, 1) + " " + u + " por lado.\n\nReduce las copias o divide el pedido en " +
-                "varias hojas. No se modificó nada.", SCRIPT_NAME);
+                round(MAX_CANVAS / kk, 1) + " " + u + " por lado.\n\nActiva \"Varias hojas\" (pestaña Acomodo) " +
+                "o reduce las copias. No se modificó nada.", SCRIPT_NAME);
             dropEmptyLabelLayer();
             return;
         }
-        var top = fitOnCanvas(artboard, ab, sheetW, opts.resize ? sheetH : Math.max(sheetH, abH));
+        var top = fitOnCanvas(artboard, ab, sheetW, sized ? maxH : Math.max(maxH, abH));
         if (top === null) {
             alert("No se pudo ubicar una hoja de " + sizeTxt + " dentro del lienzo de Illustrator.\n\n" +
                 "Prueba en un documento nuevo o con la mesa de trabajo más cerca del centro del lienzo. " +
@@ -1465,22 +1769,69 @@
             return;
         }
         originY = top;
-        if (opts.resize) {
-            artboard.artboardRect = [originX, originY, originX + sheetW, originY - sheetH];
-        } else {
-            // Sin ajustar: la mesa conserva su tamaño, solo se desplaza si hizo falta.
-            artboard.artboardRect = [ab[0], originY, ab[2], originY - abH];
-            if (Math.abs(originY - ab[1]) > 0.5) lengthNote += "\n(La mesa de trabajo se desplazó hacia arriba para que la hoja quepa en el lienzo.)";
-        }
-        if (opts.resize && Math.abs(originY - ab[1]) > 0.5) {
+        if (Math.abs(originY - ab[1]) > 0.5) {
             lengthNote += "\n(La mesa de trabajo se subió para que la hoja quepa en el lienzo de Illustrator.)";
         }
     }
 
+    // Hojas extra de una ejecución anterior: se eliminan (y sus etiquetas).
+    if (opts.multiSheet) {
+        for (i = doc.artboards.length - 1; i >= 0; i--) {
+            if (i === abIndex || doc.artboards[i].name.indexOf(SHEET_PREFIX) !== 0) continue;
+            removeLabelsIn(doc.artboards[i].artboardRect);
+            doc.artboards.remove(i);
+            if (i < abIndex) abIndex--;
+        }
+        artboard = doc.artboards[abIndex];
+    }
+
+    // Hoja 1: la mesa de trabajo activa.
+    if (sheets.length) {
+        sheets[0].x = originX;
+        sheets[0].y = originY;
+        sheets[0].abIndex = abIndex;
+        if (sized) {
+            artboard.artboardRect = [originX, originY, originX + sheetW, originY - sheets[0].h];
+        } else if (opts.mode === "strip") {
+            artboard.artboardRect = [ab[0], originY, ab[2], originY - abH];
+        }
+    }
+
+    // Hojas 2..N: mesas nuevas a la derecha; si no caben en el lienzo, en una
+    // fila nueva debajo. Las hojas que no quepan se descartan.
+    var rowLeft = originX, rowBottom = originY - (sheets.length ? sheets[0].h : abH), lastRight = originX + sheetW;
+    var droppedSheets = 0, abRect;
+    function tryAddArtboard(rect) {
+        try { return doc.artboards.add(rect); } catch (e) { return null; }
+    }
+    for (s = 1; s < sheets.length; s++) {
+        var nx = lastRight + SHEET_GAP, ny = sheets[s - 1].y, added;
+        added = tryAddArtboard([nx, ny, nx + sheetW, ny - sheets[s].h]);
+        if (!added) {
+            nx = rowLeft;
+            ny = rowBottom - SHEET_GAP;
+            added = tryAddArtboard([nx, ny, nx + sheetW, ny - sheets[s].h]);
+        }
+        if (!added) {
+            droppedSheets = sheets.length - s;
+            sheets.length = s;
+            break;
+        }
+        added.name = SHEET_PREFIX + (s + 1);
+        sheets[s].x = nx;
+        sheets[s].y = ny;
+        sheets[s].abIndex = doc.artboards.length - 1;
+        lastRight = nx + sheetW;
+        if (ny - sheets[s].h < rowBottom) rowBottom = ny - sheets[s].h;
+    }
+
     // Crear las copias necesarias ANTES de girar/mover el original.
-    var placedCount = [];
+    var placedCount = [], placedTotal = 0;
     for (i = 0; i < pieces.length; i++) placedCount.push(0);
-    for (i = 0; i < result.placements.length; i++) placedCount[copies[result.placements[i].id].piece.idx]++;
+    for (s = 0; s < sheets.length; s++) {
+        for (i = 0; i < sheets[s].placements.length; i++) placedCount[copies[sheets[s].placements[i].id].piece.idx]++;
+        placedTotal += sheets[s].placements.length;
+    }
     for (i = 0; i < pieces.length; i++) {
         pieces[i].instances = [pieces[i].item];
         for (j = 1; j < placedCount[i]; j++) pieces[i].instances.push(pieces[i].item.duplicate());
@@ -1491,31 +1842,34 @@
     var dir = opts.rotation === 2 ? "ccw" : "cw";
 
     // Centra un objeto dentro de un hueco (coordenadas de pantalla relativas a la hoja).
-    function placeCentered(obj, r) {
+    function placeCentered(obj, r, ox, oy) {
         var b = getBounds(obj), bw = b[2] - b[0], bh = b[1] - b[3];
-        obj.translate(originX + r.x + (r.w - bw) / 2 - b[0], originY - r.y - (r.h - bh) / 2 - b[1]);
+        obj.translate(ox + r.x + (r.w - bw) / 2 - b[0], oy - r.y - (r.h - bh) / 2 - b[1]);
     }
 
-    var p, cp, piece, item, slots, tf, usedArea = 0, sizeCount = {}, sizeOrder = [];
-    for (i = 0; i < result.placements.length; i++) {
-        p = result.placements[i];
-        cp = copies[p.id];
-        piece = cp.piece;
-        ls = cp.label ? labelSize[cp.label] : null;
-        slots = Utils.labelSlots(p, piece.w, piece.h, ls && ls.w, ls && ls.h, opts.labelOffset, dir);
-        item = piece.instances.shift();
-        if (p.rotated) item.rotate(angle, true, true, true, true, Transformation.CENTER);
-        placeCentered(item, slots.design);
-        // La talla queda en la nota del objeto para conservarla si se vuelve a acomodar.
-        try { item.note = Utils.noteWithLabel(item.note, cp.label); } catch (e) { }
-        if (slots.label) {
-            tf = makeLabel(cp.label);
-            if (p.rotated) tf.rotate(angle, true, true, true, true, Transformation.CENTER);
-            placeCentered(tf, slots.label);
-            if (!sizeCount[cp.label]) { sizeCount[cp.label] = 0; sizeOrder.push(cp.label); }
-            sizeCount[cp.label]++;
+    var p, cp, piece, item, slots, tf, sizeCount = {}, sizeOrder = [];
+    for (s = 0; s < sheets.length; s++) {
+        sheets[s].usedArea = 0;
+        for (i = 0; i < sheets[s].placements.length; i++) {
+            p = sheets[s].placements[i];
+            cp = copies[p.id];
+            piece = cp.piece;
+            ls = cp.label ? labelSize[cp.label] : null;
+            slots = Utils.labelSlots(p, piece.w, piece.h, ls && ls.w, ls && ls.h, opts.labelOffset, dir);
+            item = piece.instances.shift();
+            if (p.rotated) item.rotate(angle, true, true, true, true, Transformation.CENTER);
+            placeCentered(item, slots.design, sheets[s].x, sheets[s].y);
+            // La talla queda en la nota del objeto para conservarla si se vuelve a acomodar.
+            try { item.note = Utils.noteWithLabel(item.note, cp.label); } catch (e) { }
+            if (slots.label) {
+                tf = makeLabel(cp.label);
+                if (p.rotated) tf.rotate(angle, true, true, true, true, Transformation.CENTER);
+                placeCentered(tf, slots.label, sheets[s].x, sheets[s].y);
+                if (!sizeCount[cp.label]) { sizeCount[cp.label] = 0; sizeOrder.push(cp.label); }
+                sizeCount[cp.label]++;
+            }
+            sheets[s].usedArea += piece.w * piece.h;
         }
-        usedArea += piece.w * piece.h;
     }
 
     // Diseños sin ninguna copia acomodada: el original se aparta a la derecha.
@@ -1525,14 +1879,14 @@
         if (!placedCount[i]) leftovers.push(pieces[i]);
     }
     if (leftovers.length) {
-        var colX = ab[2] + 36, curY = originY, colW = 0, nb;
+        var colX = Math.max(ab[2], lastRight) + 36, curY = originY, colW = 0, nb;
         for (i = 0; i < leftovers.length; i++) {
             piece = leftovers[i];
             nb = getBounds(piece.item);
             if (curY - piece.h < originY - Math.max(abH, 2000) && curY !== originY) {
                 colX += colW + 36; curY = originY; colW = 0;
             }
-            piece.item.translate(colX - nb[0], curY - nb[1]);
+            try { piece.item.translate(colX - nb[0], curY - nb[1]); } catch (e) { }
             curY -= piece.h + 36;
             if (piece.w > colW) colW = piece.w;
         }
@@ -1541,48 +1895,75 @@
         labelLayer.zOrder(ZOrderMethod.BRINGTOFRONT);
         if (!labelLayer.pageItems.length && !usesLabels) labelLayer.remove();
     }
+    doc.artboards.setActiveArtboardIndex(abIndex);
 
     // Selección final: los diseños que no cupieron, para localizarlos fácil.
     doc.selection = null;
     for (i = 0; i < leftovers.length; i++) leftovers[i].item.selected = true;
 
-    var msg = "Piezas acomodadas: " + result.placements.length + " de " + packItems.length +
-        " (" + pieces.length + " diseño(s))" +
-        "\nHoja: " + round(sheetW / kk, 2) + " x " + round(sheetH / kk, 2) + " " + u + lengthNote +
-        "\nAprovechamiento: " + round(usedArea / (sheetW * sheetH) * 100, 1) + " %";
-    if (opts.price > 0) {
-        var c = Utils.cost(sheetH, opts.price, PRICE_UNITS[opts.priceUnit]);
+    // ------------------------------ Resumen -----------------------------
+    var totalLen = 0, totalArea = 0, totalUsed = 0, line, msg;
+    msg = "Piezas acomodadas: " + placedTotal + " de " + packItems.length + " (" + pieces.length + " diseño(s))";
+    if (!sheets.length) msg += "\nNinguna pieza cupo en la hoja.";
+    for (s = 0; s < sheets.length; s++) {
+        var shW = opts.mode === "strip" || sized ? sheetW : abW;
+        totalLen += sheets[s].h;
+        totalArea += shW * sheets[s].h;
+        totalUsed += sheets[s].usedArea;
+        line = (sheets.length > 1 ? "Hoja " + (s + 1) + ": " : "Hoja: ") +
+            round(shW / kk, 2) + " x " + round(sheets[s].h / kk, 2) + " " + u +
+            " — " + sheets[s].placements.length + " pieza(s), " +
+            round(sheets[s].usedArea / (shW * sheets[s].h) * 100, 1) + " %";
+        if (sheets[s].standard) line += " (tamaño estándar)";
+        msg += "\n" + line;
+    }
+    msg += lengthNote;
+    if (sheets.length > 1) msg += "\nAprovechamiento total: " + round(totalUsed / totalArea * 100, 1) + " %";
+    if (opts.price > 0 && sheets.length) {
+        var c = Utils.cost(totalLen, opts.price, PRICE_UNITS[opts.priceUnit]);
         msg += "\nCosto estimado: " + opts.currency + round(c, 2).toFixed(2) +
-            " (" + opts.currency + opts.price + " por " + opts.priceUnit + ")";
+            " (" + round(totalLen / kk, 1) + " " + u + " de largo, " + opts.currency + opts.price + " por " + opts.priceUnit + ")";
     }
     if (sizeOrder.length) {
         var parts = [];
-        for (i = 0; i < sizeOrder.length; i++) parts.push(sizeOrder[i] + " \u00D7" + sizeCount[sizeOrder[i]]);
+        for (i = 0; i < sizeOrder.length; i++) parts.push(sizeOrder[i] + " ×" + sizeCount[sizeOrder[i]]);
         msg += "\nTallas: " + parts.join(", ");
     }
     msg += preflightNote;
+    if (droppedSheets) {
+        msg += "\n\nNo cupieron " + droppedSheets + " hoja(s) más en el lienzo de Illustrator; " +
+            "sus piezas no se acomodaron. Reduce el largo máximo o acomoda el resto en otro documento.";
+    }
     if (missingCopies) {
-        msg += "\n\nNo cupieron " + missingCopies + " pieza(s).";
-        if (leftovers.length) msg += " Los diseños sin ninguna copia acomodada quedaron seleccionados a la derecha de la mesa de trabajo.";
+        msg += "\n\nNo se acomodaron " + missingCopies + " pieza(s).";
+        if (opts.multiSheet && res.unplaced.length && !droppedSheets && sheets.length >= opts.maxSheets) {
+            msg += " Se alcanzó el máximo de " + opts.maxSheets + " hojas.";
+        }
+        if (leftovers.length) msg += " Los diseños sin ninguna copia acomodada quedaron seleccionados a la derecha.";
         if (missingCopies > leftovers.length) msg += " Las copias extra que no cupieron no se crearon.";
     }
 
-    // Exportar PNG
-    if (opts.exportPng) {
-        if (warn) {
-            msg += "\n\nNo se exportó el PNG porque la mesa de trabajo no se pudo ajustar.";
-        } else {
-            var target = exportTarget(round(sheetW / kk, 1) + "x" + round(sheetH / kk, 1) + u);
-            if (target) {
-                var pxW = Math.round(sheetW / 72 * opts.ppi), pxH = Math.round(sheetH / 72 * opts.ppi);
-                var exp = exportPng(abIndex, target, opts.ppi);
-                if (exp.file && usesLabels) msg += "\n\nEl PNG incluye las etiquetas de talla (capa \"" + LABEL_LAYER + "\").";
-                msg += exp.file ?
-                    "\n\nPNG exportado (" + pxW + " x " + pxH + " px):\n" + decodeURI(exp.file.fsName) :
-                    "\n\nNo se pudo exportar el PNG: " + exp.error;
+    // Exportar PNG (uno por hoja)
+    if (opts.exportPng && sheets.length) {
+        var base = exportBase();
+        if (base) {
+            var exported = [], failed = [];
+            for (s = 0; s < sheets.length; s++) {
+                var shW2 = opts.mode === "strip" || sized ? sheetW : abW;
+                var fname = base.name + (sheets.length > 1 ? "_hoja" + (s + 1) : "") + "_" +
+                    round(shW2 / kk, 1) + "x" + round(sheets[s].h / kk, 1) + u;
+                var exp = exportPng(sheets[s].abIndex, File(base.folder.fsName + "/" + Utils.safeFileName(fname) + ".png"), opts.ppi);
+                if (exp.file) exported.push(decodeURI(exp.file.name) + " (" + Math.round(shW2 / 72 * opts.ppi) + " x " +
+                    Math.round(sheets[s].h / 72 * opts.ppi) + " px)");
+                else failed.push("Hoja " + (s + 1) + ": " + exp.error);
             }
+            if (exported.length) {
+                msg += "\n\nPNG exportado(s) en " + decodeURI(base.folder.fsName) + ":\n" + exported.join("\n");
+                if (usesLabels) msg += "\nIncluyen las etiquetas de talla (capa \"" + LABEL_LAYER + "\").";
+            }
+            if (failed.length) msg += "\n\nNo se pudo exportar:\n" + failed.join("\n");
         }
     }
 
-    alert(msg + warn, SCRIPT_NAME);
+    alert(msg, SCRIPT_NAME);
 })();
