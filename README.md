@@ -19,6 +19,26 @@ separación entre piezas para poder recortarlas.
     quepa se coloca a la derecha de la mesa de trabajo y queda seleccionado.
 - Separación entre elementos y margen al borde configurables (por defecto **3 mm**),
   en mm, cm o in.
+- **Acomodo por forma real (nesting)**: además del acomodo por rectángulos,
+  puede encajar las **siluetas** de los diseños (p. ej. una copia girada 180° que
+  entra en el hueco de otra), respetando la separación de corte medida sobre la
+  silueta. Funciona con vectores, imágenes con transparencia, textos y grupos.
+- **Varias hojas**: si no cabe todo, continúa en mesas de trabajo nuevas
+  (*Gangsheet - Hoja 2, 3…*) a la derecha. En modo rollo eliges el largo máximo
+  por hoja y la última se acorta al mínimo; en modo mesa de trabajo cada hoja nueva
+  tiene el tamaño de la actual.
+- **Cantidades por diseño y tallas**: cada diseño puede tener varias filas
+  (p. ej. *Logo · S ×5*, *Logo · M ×10*). Cada copia lleva una **etiqueta
+  discreta** con su talla (XS, S, M, L, XL, 2XL, 3XL, 4XL o texto personalizado)
+  debajo del diseño; su espacio se reserva al acomodar.
+- **Revisión previa (preflight)**: avisa de imágenes con baja resolución a su
+  tamaño real, vínculos rotos, líneas muy finas, textos pequeños y textos sin
+  convertir a contornos.
+- **Largo de la hoja**: exacto, redondeado a unidad entera o el **menor tamaño
+  estándar** donde quepa (lista editable).
+- **Costo estimado** según tu precio por cm, m, in o ft de largo.
+- **Exportar PNG transparente** a la resolución elegida (300 ppi por defecto), en
+  la carpeta del documento, con la medida en el nombre del archivo.
 - Recuerda la última configuración usada.
 
 ## Instalación
@@ -38,7 +58,9 @@ elige el archivo. Puedes asignarle un atajo de teclado con una Acción.
 2. Selecciona las piezas a acomodar (o ninguna, y elige “Todo lo visible y desbloqueado”).
 3. Ejecuta el script, ajusta las opciones y pulsa **Acomodar**.
 
-Opciones:
+La ventana tiene tres pestañas:
+
+**Acomodo**
 
 | Opción | Descripción |
 | --- | --- |
@@ -48,19 +70,78 @@ Opciones:
 | Margen al borde | Espacio entre las piezas y el borde de la hoja. |
 | Rotación | No rotar, o permitir giros; el sentido del giro (horario/antihorario) es elegible. |
 | Calidad | Rápida / Normal / Máxima. Más calidad = prueba más combinaciones (más lento). |
+| Método | **Rectángulos** (rápido) o **Forma real** (encaja siluetas; más lento). |
+| Precisión | Solo forma real: tamaño de la cuadrícula (1, 2, 3 o 5 mm). 2 mm es un buen equilibrio. |
+| Varias hojas | Continúa en hojas nuevas si no cabe todo; largo máximo por hoja (rollo) y máximo de hojas. |
+
+**Cantidades**
+
+Lista de diseños con columnas *Pieza · Tamaño · Talla · Copias*. Selecciona una o
+varias filas y:
+
+- **Tallas por diseño…**: abre una ventana con XS, S, M, L, XL, 2XL, 3XL, 4XL,
+  “sin etiqueta” y 3 tallas personalizadas; escribe cuántas copias de cada una y
+  se crean todas las filas de ese diseño de una vez (también sirve con varios
+  diseños seleccionados).
+- **Asignar copias**: cambia cuántas copias se acomodan (0 = no acomodar).
+- **Asignar talla**: pone la etiqueta elegida a las filas seleccionadas.
+- **Agregar talla**: crea otra fila del mismo diseño con la talla y copias indicadas
+  (así un diseño puede ir en S, M, L... a la vez).
+- **Quitar fila** / **Reiniciar lista**.
+
+Con **“Mostrar en el lienzo la pieza seleccionada”** activado, al elegir una fila
+de la lista se selecciona y centra esa pieza en el documento para identificarla.
+Si cancelas, se restaura tu selección original.
+
+Si el nombre de un objeto o grupo (panel Capas) termina en `x10`, toma 10 copias
+automáticamente. La etiqueta usa Arial negro; su tamaño de letra (7 pt por
+defecto) y separación del diseño (1.5 mm) son configurables. Las etiquetas se
+crean en la capa **“Etiquetas de talla”**: ocúltala si no quieres imprimirlas.
+La talla también se guarda en la nota (*Atributos*) de cada copia, así que si
+vuelves a ejecutar el script las copias conservan su talla; las etiquetas
+anteriores de esa mesa de trabajo se reemplazan.
+
+> Importante: la etiqueta se imprime en la película. Al estar separada del diseño
+> puedes recortarla, o ocultar la capa antes de imprimir/exportar.
+
+**Salida**
+
+| Opción | Descripción |
+| --- | --- |
+| Ajustar la mesa de trabajo | Modo rollo: cambia el largo del artboard al resultado. |
+| Largo | Exacto, redondeado a unidad entera o tamaño estándar (lista separada por `;`). |
+| Costo estimado | Precio por cm, m, in o ft de largo (0 = no calcular). |
+| Exportar PNG | PNG transparente a N ppi en la carpeta del documento. |
+| Revisión (preflight) | Resolución mínima (ppi) y grosor mínimo de línea. |
 
 ## Notas
 
-- El acomodo se hace por **rectángulo envolvente** de cada pieza (lo recomendable
-  para recortar). En ese esquema 180° ocupa lo mismo que 0° y 270° lo mismo que
-  90°, por eso el script solo gira cuando el giro de 90° (en el sentido elegido)
-  ahorra espacio.
+- **Rectángulos**: cada pieza ocupa su rectángulo envolvente. Ahí 180° ocupa lo
+  mismo que 0°, así que solo gira 90° (en el sentido elegido) cuando ahorra espacio.
+- **Forma real**: para cada diseño se captura una imagen pequeña con transparencia
+  (en un documento temporal que se cierra solo) y se convierte en una cuadrícula de
+  celdas ocupadas. Una celda cuenta como ocupada si *cualquier* parte del diseño la
+  toca, así que la silueta siempre es un poco más grande que el arte (nunca más
+  chica) y la separación real es igual o mayor a la indicada. Prueba 0°, 90°, 180° y
+  270° (si la rotación está permitida) y coloca cada copia lo más arriba posible.
+  Si no se puede leer la silueta de un diseño, se usa su rectángulo y se avisa.
+  Con la precisión de 1 mm el cálculo es notablemente más lento.
 - Se usan los **límites visibles** (incluyen el grosor del trazo).
 - Los objetos bloqueados, ocultos o en capas bloqueadas/ocultas se ignoran. En modo
   “Selección”, el resto de objetos del documento no se toma en cuenta, así que
   podrían quedar encimados con el resultado.
-- Illustrator limita una mesa de trabajo a ~577 cm (227 in). Si el rollo es más
-  largo, las piezas se acomodan igual pero la mesa de trabajo no se ajusta.
+- El lienzo de Illustrator mide ~577 × 577 cm y ninguna mesa de trabajo puede
+  salirse de él. Si la hoja no cabe hacia abajo, el script sube la mesa de trabajo;
+  si es más larga que el lienzo, avisa (sin modificar nada) y sugiere activar
+  **Varias hojas**. Las hojas que ya no quepan en el lienzo se descartan y se avisa.
+- Con **Varias hojas**, al volver a ejecutar el script se eliminan las hojas
+  *Gangsheet - Hoja N* creadas antes (y sus etiquetas) para generarlas de nuevo.
+- Se exporta un PNG por hoja (`_hoja1`, `_hoja2`…).
+- Exportar PNG usa *Exportar para pantallas* (Illustrator CC 2018+), y en versiones
+  anteriores *imageCapture*. Hojas muy largas a 300 ppi generan imágenes enormes
+  (58 × 500 cm ≈ 6850 × 59000 px) y pueden tardar o fallar por memoria.
+- La resolución efectiva se calcula para imágenes incrustadas y vinculadas
+  (PNG, JPG, TIFF, PSD…) según su escala en el documento.
 - Con cientos de piezas, la calidad “Máxima” puede tardar varios segundos o más
   (hay barra de progreso).
 
@@ -68,8 +149,13 @@ Opciones:
 
 El motor de acomodo (algoritmo MaxRects con varias heurísticas y órdenes, más
 búsqueda binaria del largo mínimo) está entre los marcadores `PACKER START` /
-`PACKER END` del `.jsx` y no depende de Illustrator. Las pruebas lo ejecutan en Node:
+`PACKER END` del `.jsx`, y las utilidades puras entre `UTILS START` / `UTILS END`;
+ninguno depende de Illustrator. Las pruebas lo ejecutan en Node:
 
 ```sh
 npm test
 ```
+
+`test/integration.test.js` ejecuta el script completo contra una simulación del
+DOM de Illustrator y de ScriptUI (`test/illustrator-mock.js`), incluidos los
+límites del lienzo, para probar diálogos, copias, tallas y varias hojas.
