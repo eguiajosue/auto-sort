@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>AutoSort Gangsheet DTF — script para Adobe Illustrator</title>
-<meta name="description" content="Script gratuito para Adobe Illustrator que acomoda diseños en gangsheets DTF: encaja siluetas, respeta la separación de corte, etiqueta tallas y exporta PNG.">
+<meta name="description" content="Script gratuito y de código abierto para Adobe Illustrator que acomoda diseños en gangsheets DTF: encaja siluetas, respeta la separación de corte, etiqueta tallas y exporta PNG.">
 <meta name="theme-color" content="#10201a">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -27,10 +27,11 @@
   --display:"Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;
   --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
   --out:cubic-bezier(.16,1,.3,1);
+  --bar:62px;
   color-scheme:dark;
 }
 *{box-sizing:border-box}
-html{scroll-behavior:smooth;scrollbar-color:var(--mat-3) var(--mat)}
+html{scroll-behavior:smooth;scroll-padding-top:calc(var(--bar) + 12px);scrollbar-color:var(--mat-3) var(--mat)}
 ::-webkit-scrollbar{width:10px}
 ::-webkit-scrollbar-track{background:var(--mat)}
 ::-webkit-scrollbar-thumb{background:var(--mat-3);border:2px solid var(--mat)}
@@ -48,21 +49,30 @@ body{
   background-position:-1px -1px;
 }
 a{color:var(--reg);text-underline-offset:3px;text-decoration-thickness:1px}
-a:focus-visible,button:focus-visible,summary:focus-visible,.step:focus-visible{outline:2px dashed var(--cut);outline-offset:4px}
+a:focus-visible,button:focus-visible,summary:focus-visible,.step:focus-visible,input:focus-visible{outline:2px dashed var(--cut);outline-offset:4px}
 .wrap{max-width:1180px;margin:0 auto;padding:0 24px}
 
-/* ---------- barra ---------- */
-.bar{position:sticky;top:0;z-index:20;background:var(--mat);border-bottom:1px dashed var(--grid-strong)}
-.bar .wrap{display:flex;align-items:center;gap:28px;height:62px}
-.brand{display:flex;align-items:center;gap:10px;color:var(--ink);text-decoration:none;font-weight:800;letter-spacing:-.02em;font-size:18px}
+/* ---------- barra de navegación ---------- */
+.bar{position:sticky;top:0;z-index:30;background:var(--mat);border-bottom:1px dashed var(--grid-strong)}
+.bar .wrap{display:flex;align-items:center;gap:20px;height:var(--bar)}
+.brand{display:flex;align-items:center;gap:10px;color:var(--ink);text-decoration:none;font-weight:800;letter-spacing:-.02em;font-size:18px;flex:none}
 .brand svg{width:24px;height:24px}
-.bar nav{margin-left:auto;display:flex;gap:26px}
-.bar nav a{color:var(--ink-dim);text-decoration:none;font-size:15px}
-.bar nav a:hover{color:var(--ink)}
+.nav{margin-left:auto;display:flex;align-items:stretch;height:100%}
+.nav a{display:flex;align-items:center;padding:0 12px;color:var(--ink-dim);text-decoration:none;font-size:15px;position:relative;white-space:nowrap;transition:color .15s var(--out)}
+.nav a::after{content:"";position:absolute;left:12px;right:12px;bottom:-1px;height:2px;background:var(--cut);transform:scaleX(0);transform-origin:left;transition:transform .25s var(--out)}
+.nav a:hover{color:var(--ink)}
+.nav a.on{color:var(--ink)}
+.nav a.on::after{transform:scaleX(1)}
+.tools{display:flex;align-items:center;gap:12px;flex:none}
+.lang{display:flex;border:1px solid var(--grid-strong);border-radius:3px;overflow:hidden}
+.lang button{font:inherit;font-family:var(--mono);font-size:12px;background:none;border:0;color:var(--ink-faint);padding:6px 9px;cursor:pointer}
+.lang button[aria-pressed="true"]{background:var(--ink);color:var(--mat)}
+.menu-btn{display:none;background:none;border:1px solid var(--grid-strong);border-radius:3px;color:var(--ink);width:40px;height:36px;cursor:pointer;padding:0}
+.menu-btn svg{width:18px;height:18px;display:block;margin:auto}
 .btn{
   display:inline-flex;align-items:center;gap:10px;
   background:var(--cut);color:#160b05;font-weight:800;text-decoration:none;font-size:16px;
-  padding:14px 22px;border-radius:3px;
+  padding:14px 22px;border-radius:3px;border:0;cursor:pointer;font-family:inherit;
   box-shadow:0 10px 24px -12px rgba(255,91,31,.55);
   transition:background .15s var(--out),transform .15s var(--out);
 }
@@ -77,7 +87,7 @@ a:focus-visible,button:focus-visible,summary:focus-visible,.step:focus-visible{o
 .story .wrap{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);gap:64px}
 .step{min-height:78vh;display:flex;flex-direction:column;justify-content:center;opacity:.42;transition:opacity .4s var(--out)}
 .step.on,.step.hero{opacity:1}
-.step.hero{min-height:calc(100vh - 62px);padding-bottom:6vh}
+.step.hero{min-height:calc(100vh - var(--bar));padding-bottom:6vh}
 .steps-rest .step:last-child{min-height:90vh}
 h1{font-size:clamp(2.8rem,6.2vw,5.6rem);line-height:.94;letter-spacing:-.04em;margin:0 0 28px;font-weight:800;text-wrap:balance}
 h1 em{font-style:normal;color:var(--cut)}
@@ -90,7 +100,7 @@ h1 em{font-style:normal;color:var(--cut)}
 .step .fact{font-family:var(--mono);font-size:13px;color:var(--ink);margin-top:14px;padding-top:12px;border-top:1px dashed var(--grid-strong);max-width:42ch}
 .stage-col{position:relative}
 .stage{
-  position:sticky;top:86px;height:calc(100vh - 116px);max-height:780px;
+  position:sticky;top:calc(var(--bar) + 24px);height:calc(100vh - var(--bar) - 54px);max-height:780px;
   background:var(--mat-2);border:1px solid var(--grid-strong);
   display:flex;flex-direction:column;
 }
@@ -112,7 +122,6 @@ h1 em{font-style:normal;color:var(--cut)}
 #stage .bbox{fill:none;stroke:var(--reg);stroke-width:1;stroke-dasharray:3 3;opacity:0;transition:opacity .4s var(--out)}
 #stage .halo{fill:none;stroke:var(--ink);stroke-opacity:.16;stroke-width:8;stroke-linejoin:round;opacity:0;transition:opacity .5s var(--out)}
 #stage .cells{opacity:0;transition:opacity .5s var(--out)}
-/* línea de corte: se traza alrededor de cada silueta al final */
 #stage .cutline{fill:none;stroke:var(--reg);stroke-width:1.2;stroke-linejoin:round;stroke-dasharray:400;stroke-dashoffset:400;opacity:0;vector-effect:non-scaling-stroke}
 #stage .tag{font-family:var(--mono);font-size:10px;font-weight:500;fill:#111;opacity:0;transition:opacity .3s var(--out)}
 #stage .tagbg{fill:var(--ink);opacity:0;transition:opacity .3s var(--out)}
@@ -138,7 +147,55 @@ h1 em{font-style:normal;color:var(--cut)}
 /* ---------- secciones ---------- */
 section.block{padding:120px 0 40px}
 h2{font-size:clamp(2.1rem,4.4vw,3.6rem);line-height:1;letter-spacing:-.035em;margin:0 0 20px;font-weight:800;text-wrap:balance}
-.sub{color:var(--ink-dim);max-width:52ch;margin:0 0 56px;font-size:1.1rem}
+.sub{color:var(--ink-dim);max-width:56ch;margin:0 0 48px;font-size:1.1rem}
+
+/* ---------- simulador ---------- */
+.sim{display:grid;grid-template-columns:minmax(0,320px) minmax(0,1fr);gap:40px;align-items:start}
+.panel-ctl{border:1px solid var(--grid-strong);background:var(--mat-2);position:sticky;top:calc(var(--bar) + 24px)}
+.panel-ctl .grp{padding:18px 20px;border-bottom:1px dashed var(--grid-strong)}
+.panel-ctl .grp:last-child{border-bottom:0}
+.grp-t{display:flex;justify-content:space-between;align-items:baseline;font-weight:600;margin:0 0 10px;font-size:15px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chips input{position:absolute;opacity:0;pointer-events:none}
+.chips label{display:flex;align-items:center;gap:7px;padding:7px 11px;border:1px solid var(--grid-strong);border-radius:3px;cursor:pointer;color:var(--ink-dim);font-size:14px;transition:border-color .15s var(--out),color .15s var(--out),background .15s var(--out)}
+.chips label svg{width:18px;height:18px;flex:none}
+.chips label:hover{color:var(--ink);border-color:var(--ink-faint)}
+.chips input:checked+label{color:var(--ink);border-color:var(--cut);background:rgba(255,91,31,.12)}
+.chips input:focus-visible+label{outline:2px dashed var(--cut);outline-offset:3px}
+.chips.sm label{font-family:var(--mono);font-size:12px;padding:5px 9px}
+.num-row{display:grid;grid-template-columns:1fr 78px;gap:12px;align-items:center}
+.num-row input[type=range]{width:100%;accent-color:var(--cut);margin:0}
+.unit{display:flex;align-items:center;border:1px solid var(--grid-strong);border-radius:3px;background:rgba(0,0,0,.25)}
+.unit input{width:100%;min-width:0;background:none;border:0;color:var(--ink);font-family:var(--mono);font-size:14px;padding:6px 0 6px 8px;font-variant-numeric:tabular-nums;-moz-appearance:textfield}
+.unit input::-webkit-inner-spin-button{-webkit-appearance:none}
+.unit span{font-family:var(--mono);font-size:12px;color:var(--ink-faint);padding-right:8px}
+.chips.sm{margin-top:10px}
+.check{display:flex;gap:10px;align-items:flex-start;color:var(--ink-dim);cursor:pointer;font-size:14px;margin-top:8px}
+.check:first-child{margin-top:0}
+.check input{accent-color:var(--cut);width:17px;height:17px;margin:2px 0 0;flex:none}
+.out{min-width:0}
+.readout{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));margin:0 0 16px;border-top:1px solid var(--grid-strong);border-bottom:1px solid var(--grid-strong)}
+.readout div{padding:12px 16px 12px 0;min-width:0}
+.readout div+div{padding-left:16px;border-left:1px dashed var(--grid-strong)}
+.readout dt{color:var(--ink-faint);font-size:13px}
+.readout dd{margin:2px 0 0;font-family:var(--mono);font-size:clamp(1.15rem,2.2vw,1.7rem);font-variant-numeric:tabular-nums;color:var(--ink);letter-spacing:-.02em;white-space:nowrap}
+.readout dd small{font-size:.55em;color:var(--ink-dim);margin-left:3px}
+.readout dd.good{color:var(--reg)}
+.sheetbox{background:var(--mat-2);border:1px solid var(--grid-strong);padding:12px}
+.sheetbox svg{display:block;width:100%;height:min(70vh,760px)}
+#sim-sheet .sh{fill:rgba(239,232,216,.04);stroke:var(--ink-faint);stroke-width:1;vector-effect:non-scaling-stroke;stroke-dasharray:4 3}
+#sim-sheet .sh.best{stroke:var(--reg)}
+#sim-sheet .tick{stroke:var(--ink-faint);stroke-width:1;vector-effect:non-scaling-stroke}
+#sim-sheet .tl{font-family:var(--mono);fill:var(--ink-faint)}
+#sim-sheet .ttl{font-family:var(--display);font-weight:600;fill:var(--ink)}
+#sim-sheet .len{font-family:var(--mono);fill:var(--reg)}
+#sim-sheet .len.dim{fill:var(--ink-dim)}
+#sim-sheet .pc{animation:drop .45s var(--out) both}
+@keyframes drop{from{opacity:0;transform:translateY(-6px)}}
+#sim-sheet .halo{fill:none;stroke:var(--reg);stroke-opacity:.35;stroke-linejoin:round}
+#sim-sheet .f0{fill:var(--cut)}#sim-sheet .f1{fill:var(--cyan)}#sim-sheet .f2{fill:var(--mag)}#sim-sheet .f3{fill:var(--reg)}
+.simwarn{color:var(--cut-d);font-size:.95rem;min-height:1.5em;margin:10px 0 0}
+.simnote{color:var(--ink-faint);font-size:.92rem;margin:6px 0 0;max-width:66ch}
 
 /* ficha de trabajo: las funciones como una orden de producción */
 .order{display:grid;grid-template-columns:1fr 1fr;gap:0 64px;margin:0;border-top:1px solid var(--grid-strong)}
@@ -178,6 +235,16 @@ code{font-family:var(--mono);font-size:.84em;background:rgba(0,0,0,.28);padding:
 .rows dt{font-weight:600}
 .rows dd{margin:0;color:var(--ink-dim)}
 
+/* código abierto */
+.oss{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:64px;align-items:start}
+.oss p{color:var(--ink-dim);margin:0 0 18px;max-width:58ch}
+.oss p b{color:var(--ink)}
+.why{list-style:none;margin:0;padding:0;border-top:1px solid var(--grid-strong)}
+.why li{padding:18px 0;border-bottom:1px dashed var(--grid-strong)}
+.why b{display:block;font-size:1.08rem;margin-bottom:4px}
+.why span{color:var(--ink-dim);font-size:.97rem}
+.oss .links{display:flex;flex-wrap:wrap;gap:20px;align-items:center;margin-top:28px}
+
 /* FAQ */
 .faq{columns:2;column-gap:56px}
 .faq details{break-inside:avoid;border-top:1px dashed var(--grid-strong);padding:4px 0 6px}
@@ -195,50 +262,22 @@ footer{padding:30px 0 44px;color:var(--ink-faint);font-size:14px}
 footer .wrap{display:flex;flex-wrap:wrap;gap:18px;justify-content:space-between}
 footer a{color:var(--ink-dim)}
 
-
-/* ---------- simulador ---------- */
-.sim{display:grid;grid-template-columns:minmax(0,340px) minmax(0,1fr);gap:48px;align-items:start}
-.ctl{display:grid;gap:26px}
-.ctl fieldset{border:0;padding:0;margin:0;min-width:0}
-.ctl legend{font-weight:600;margin-bottom:10px;padding:0}
-.chips{display:flex;flex-wrap:wrap;gap:8px}
-.chips input{position:absolute;opacity:0;pointer-events:none}
-.chips label{display:flex;align-items:center;gap:8px;padding:9px 14px;border:1px solid var(--grid-strong);border-radius:3px;cursor:pointer;color:var(--ink-dim);font-size:15px;transition:border-color .15s var(--out),color .15s var(--out),background .15s var(--out)}
-.chips label svg{width:20px;height:20px;flex:none}
-.chips label:hover{color:var(--ink);border-color:var(--ink-faint)}
-.chips input:checked+label{color:var(--ink);border-color:var(--cut);background:rgba(255,91,31,.1)}
-.chips input:focus-visible+label{outline:2px dashed var(--cut);outline-offset:3px}
-.range{display:grid;grid-template-columns:1fr auto;gap:6px 12px;align-items:center}
-.range label{font-weight:600}
-.range output{font-family:var(--mono);color:var(--reg);font-size:14px;font-variant-numeric:tabular-nums}
-.range input[type=range]{grid-column:1/-1;width:100%;accent-color:var(--cut);margin:4px 0 0}
-.toggles{display:grid;gap:12px}
-.check{display:flex;gap:10px;align-items:flex-start;color:var(--ink-dim);cursor:pointer;font-size:15px}
-.check input{accent-color:var(--cut);width:18px;height:18px;margin:2px 0 0;flex:none}
-.out{min-width:0}
-.readout{display:grid;grid-template-columns:repeat(3,1fr);gap:0;border-top:1px solid var(--grid-strong);border-bottom:1px solid var(--grid-strong);margin-bottom:18px}
-.readout div{padding:14px 18px 14px 0}
-.readout div+div{padding-left:18px;border-left:1px dashed var(--grid-strong)}
-.readout dt{color:var(--ink-faint);font-size:13px}
-.readout dd{margin:2px 0 0;font-family:var(--mono);font-size:clamp(1.3rem,2.6vw,1.9rem);font-variant-numeric:tabular-nums;color:var(--ink);letter-spacing:-.02em}
-.readout dd small{font-size:.55em;color:var(--ink-dim);margin-left:4px}
-.readout dd.good{color:var(--reg)}
-.sheetbox{background:var(--mat-2);border:1px solid var(--grid-strong);padding:18px}
-/* la hoja completa siempre cabe en pantalla: si es larga, se ve más angosta */
-.sheetbox svg{display:block;width:100%;height:68vh;max-height:760px}
-#sim-sheet .sh{fill:rgba(239,232,216,.04);stroke:var(--ink-faint);stroke-width:.8;vector-effect:non-scaling-stroke;stroke-dasharray:4 4}
-#sim-sheet .pc{animation:drop .5s var(--out) both}
-@keyframes drop{from{opacity:0;transform:translate(var(--dx,0px),-14px)}}
-#sim-sheet .halo{fill:none;stroke:var(--reg);stroke-opacity:.4;stroke-linejoin:round}
-#sim-sheet .f0{fill:var(--cut)}#sim-sheet .f1{fill:var(--cyan)}#sim-sheet .f2{fill:var(--mag)}#sim-sheet .f3{fill:var(--reg)}
-.simnote{color:var(--ink-faint);font-size:.92rem;margin:14px 0 0;max-width:62ch}
-.simwarn{color:var(--cut-d);font-size:.95rem;min-height:1.5em;margin:10px 0 0}
-@media (max-width:900px){.sim{grid-template-columns:1fr;gap:32px}.readout dd{font-size:1.25rem}}
-@media (prefers-reduced-motion:reduce){#sim-sheet .pc{animation:none}}
-
 /* responsive */
+@media (max-width:1100px){
+  .nav a{padding:0 8px;font-size:14px}
+  .nav a::after{left:8px;right:8px}
+}
+@media (max-width:960px){
+  .menu-btn{display:block}
+  .bar .btn{display:none}
+  .nav{position:absolute;top:var(--bar);left:0;right:0;height:auto;flex-direction:column;background:var(--mat);border-bottom:1px dashed var(--grid-strong);padding:8px 24px 16px;display:none}
+  .nav.open{display:flex}
+  .nav a{padding:12px 0;font-size:17px;border-bottom:1px dashed var(--grid-strong)}
+  .nav a::after{display:none}
+  .nav a.on{color:var(--cut)}
+  .tools{margin-left:auto}
+}
 @media (max-width:900px){
-  .bar nav{display:none}
   .story .wrap{grid-template-columns:1fr;gap:0}
   .step.hero{min-height:0;padding:56px 0 36px}
   .steps{display:contents}
@@ -253,11 +292,17 @@ footer a{color:var(--ink-dim)}
   .steps-rest .step h3{font-size:1.3rem;margin-bottom:6px}
   .steps-rest .step p{display:none}
   .steps-rest .step.on p{display:block}
-  .order,.install{grid-template-columns:1fr}
+  .sim{grid-template-columns:1fr;gap:24px}
+  .panel-ctl{position:relative;top:0}
+  .sheetbox svg{height:auto;max-height:78vh}
+  .order,.install,.oss{grid-template-columns:1fr}
+  .oss{gap:24px}
   .faq{columns:1}
   .rows div{grid-template-columns:1fr;gap:4px}
   section.block{padding:88px 0 24px}
   .note{padding-left:0}
+  .readout div{padding-right:8px}
+  .readout div+div{padding-left:10px}
 }
 /* Movimiento reducido: sin desplazamientos; los cambios de estado se
    mantienen como cambios de opacidad y color. */
@@ -266,6 +311,8 @@ footer a{color:var(--ink-dim)}
   #stage .piece,.btn{transition:none}
   #stage .scan{display:none}
   #stage[data-step="5"] .cutline{stroke-dashoffset:0;transition:opacity .4s}
+  #sim-sheet .pc{animation:fade .3s both}
+  @keyframes fade{from{opacity:0}}
 }
 </style>
 </head>
@@ -276,10 +323,25 @@ footer a{color:var(--ink-dim)}
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12 L20 4 L15.5 12 L20 20 Z" fill="#ff5b1f"/><circle cx="12" cy="12" r="11" fill="none" stroke="#efe8d8" stroke-dasharray="2 2"/></svg>
     AutoSort
   </a>
-  <nav>
-    <a href="#paso-2">Cómo funciona</a><a href="#simulador">Simulador</a><a href="#funciones">Funciones</a><a href="#instalar">Instalar</a><a href="#opciones">Opciones</a><a href="#faq">Preguntas</a>
+  <nav class="nav" id="nav" aria-label="Secciones" data-en-aria="Sections">
+    <a href="#como" data-en="How it works">Cómo funciona</a>
+    <a href="#simulador" data-en="Simulator">Simulador</a>
+    <a href="#funciones" data-en="Features">Funciones</a>
+    <a href="#instalar" data-en="Install">Instalar</a>
+    <a href="#opciones" data-en="Options">Opciones</a>
+    <a href="#codigo-abierto" data-en="Open source">Código abierto</a>
+    <a href="#faq" data-en="FAQ">Preguntas</a>
   </nav>
-  <a class="btn" href="download/AutoSort-Gangsheet.jsx" download>Descargar</a>
+  <div class="tools">
+    <div class="lang" role="group" aria-label="Idioma / Language">
+      <button type="button" data-lang="es" aria-pressed="true" lang="es">ES</button>
+      <button type="button" data-lang="en" aria-pressed="false" lang="en">EN</button>
+    </div>
+    <a class="btn" href="download/AutoSort-Gangsheet.jsx" download data-en="Download">Descargar</a>
+    <button class="menu-btn" id="menuBtn" type="button" aria-expanded="false" aria-controls="nav" aria-label="Menú" data-en-aria="Menu">
+      <svg viewBox="0 0 18 18" aria-hidden="true"><path d="M2 4h14M2 9h14M2 14h14" stroke="currentColor" stroke-width="1.6"/></svg>
+    </button>
+  </div>
 </div></header>
 
 <main>
@@ -288,46 +350,46 @@ footer a{color:var(--ink-dim)}
   <div class="wrap">
     <div class="steps">
       <div class="step hero" data-step="0">
-        <h1>Más diseños,<br>menos <em>película</em>.</h1>
-        <p class="lead">Un script gratuito para Adobe Illustrator que arma tus gangsheets DTF: encaja las siluetas, deja la separación justa para recortar y exporta el PNG para el RIP.</p>
+        <h1 data-en="More designs,<br>less <em>film</em>.">Más diseños,<br>menos <em>película</em>.</h1>
+        <p class="lead" data-en="A free, open-source script for Adobe Illustrator that builds your DTF gang sheets: it nests the silhouettes, leaves just the right gap for cutting and exports the PNG for your RIP.">Un script gratuito y de código abierto para Adobe Illustrator que arma tus gangsheets DTF: encaja las siluetas, deja la separación justa para recortar y exporta el PNG para el RIP.</p>
         <div class="cta">
           <a class="btn" href="download/AutoSort-Gangsheet.jsx" download>
             <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1v9m0 0L4 6m4 4 4-4M2 14h12" stroke="currentColor" stroke-width="2" fill="none"/></svg>
-            Descargar el script
+            <span data-en="Download the script">Descargar el script</span>
           </a>
-          <a class="btn quiet" href="#paso-2">Baja y míralo trabajar</a>
+          <a class="btn quiet" href="#simulador" data-en="Try the simulator">Probar el simulador</a>
         </div>
-        <p class="compat">Para Illustrator CC 2018 o posterior, en Windows y macOS. Un solo archivo, sin cuentas ni internet.</p>
+        <p class="compat" data-en="For Illustrator CC 2018 or later, on Windows and macOS. A single file, no accounts, no internet.">Para Illustrator CC 2018 o posterior, en Windows y macOS. Un solo archivo, sin cuentas ni internet.</p>
       </div>
       <div class="steps-rest">
         <div class="step" data-step="1" id="paso-2" tabindex="0">
-          <div class="n">2 de 6</div>
-          <h3>Mide cada pieza sin tocar su tamaño.</h3>
-          <p>Cada grupo cuenta como una sola pieza. En grupos con máscara de recorte mide la máscara, no el arte oculto.</p>
-          <p class="fact">el tamaño nunca cambia: solo posición y giro</p>
+          <div class="n" data-en="2 of 6">2 de 6</div>
+          <h3 data-en="Measures every piece without touching its size.">Mide cada pieza sin tocar su tamaño.</h3>
+          <p data-en="Each group counts as a single piece. For clipping groups it measures the mask, not the hidden artwork.">Cada grupo cuenta como una sola pieza. En grupos con máscara de recorte mide la máscara, no el arte oculto.</p>
+          <p class="fact" data-en="size never changes: only position and rotation">el tamaño nunca cambia: solo posición y giro</p>
         </div>
         <div class="step" data-step="2" tabindex="0">
-          <div class="n">3 de 6</div>
-          <h3>Acomoda rápido, por cajas.</h3>
-          <p>Prueba varias combinaciones de orden y posición, y gira 90° cuando ahorra espacio, hasta dar con el largo mínimo para tu ancho de rollo.</p>
-          <p class="fact">método: rectángulos</p>
+          <div class="n" data-en="3 of 6">3 de 6</div>
+          <h3 data-en="Packs fast, by boxes.">Acomoda rápido, por cajas.</h3>
+          <p data-en="Tries several orders and positions and rotates 90° when it saves space, until it finds the shortest length for your roll width.">Prueba varias combinaciones de orden y posición, y gira 90° cuando ahorra espacio, hasta dar con el largo mínimo para tu ancho de rollo.</p>
+          <p class="fact" data-en="method: rectangles">método: rectángulos</p>
         </div>
         <div class="step" data-step="3" tabindex="0">
-          <div class="n">4 de 6</div>
-          <h3>Encaja las siluetas.</h3>
-          <p>Lee la silueta de cada diseño en una cuadrícula fina y le añade un halo con la separación de corte. Después gira las copias 0°, 90°, 180° o 270° para que entren en los huecos de las otras.</p>
-          <p class="fact">en pruebas: 102.7 cm → 52.2 cm de largo</p>
+          <div class="n" data-en="4 of 6">4 de 6</div>
+          <h3 data-en="Nests the silhouettes.">Encaja las siluetas.</h3>
+          <p data-en="Reads each design's silhouette on a fine grid and adds a halo with the cutting gap. Then it rotates copies 0°, 90°, 180° or 270° so they fit into each other's gaps.">Lee la silueta de cada diseño en una cuadrícula fina y le añade un halo con la separación de corte. Después gira las copias 0°, 90°, 180° o 270° para que entren en los huecos de las otras.</p>
+          <p class="fact" data-en="in tests: 102.7 cm → 52.2 cm long">en pruebas: 102.7 cm → 52.2 cm de largo</p>
         </div>
         <div class="step" data-step="4" tabindex="0">
-          <div class="n">5 de 6</div>
-          <h3>Cada copia, con su talla.</h3>
-          <p>Indicas cuántas copias quieres de cada talla, de XS a 4XL o personalizada. Cada una lleva una etiqueta discreta en una capa aparte, fácil de ocultar o recortar.</p>
+          <div class="n" data-en="5 of 6">5 de 6</div>
+          <h3 data-en="Every copy, with its size.">Cada copia, con su talla.</h3>
+          <p data-en="You set how many copies of each size you want, from XS to 4XL or custom. Each one gets a discreet label on its own layer, easy to hide or trim.">Indicas cuántas copias quieres de cada talla, de XS a 4XL o personalizada. Cada una lleva una etiqueta discreta en una capa aparte, fácil de ocultar o recortar.</p>
         </div>
         <div class="step" data-step="5" tabindex="0">
-          <div class="n">6 de 6</div>
-          <h3>Hoja ajustada, lista para cortar.</h3>
-          <p>Ajusta la mesa de trabajo al largo exacto, redondeado o al tamaño estándar más cercano, calcula el costo y exporta un PNG transparente por hoja.</p>
-          <p class="fact">si no cabe todo, continúa en hojas nuevas</p>
+          <div class="n" data-en="6 of 6">6 de 6</div>
+          <h3 data-en="A fitted sheet, ready to cut.">Hoja ajustada, lista para cortar.</h3>
+          <p data-en="Fits the artboard to the exact, rounded or nearest standard length, estimates the cost and exports one transparent PNG per sheet.">Ajusta la mesa de trabajo al largo exacto, redondeado o al tamaño estándar más cercano, calcula el costo y exporta un PNG transparente por hoja.</p>
+          <p class="fact" data-en="if it doesn't all fit, it continues on new sheets">si no cabe todo, continúa en hojas nuevas</p>
         </div>
       </div>
     </div>
@@ -335,13 +397,13 @@ footer a{color:var(--ink-dim)}
       <div class="stage">
         <div class="stage-head"><span id="stageTitle">1/6 · entrada</span><span class="ticks" id="ticks"><i></i><i></i><i></i><i></i><i></i><i></i></span></div>
         <svg id="stage" data-step="0" viewBox="0 0 400 500" role="img" aria-labelledby="stageDesc">
-          <desc id="stageDesc">Demostración animada: nueve diseños regados se miden, se acomodan en una hoja de rollo, se encajan por su silueta, reciben su talla y se trazan sus líneas de corte.</desc>
+          <desc id="stageDesc" data-en="Animated demo: nine scattered designs are measured, packed on a roll sheet, nested by silhouette, labeled with their size and given cut lines.">Demostración animada: nueve diseños regados se miden, se acomodan en una hoja de rollo, se encajan por su silueta, reciben su talla y se trazan sus líneas de corte.</desc>
           <defs>
             <pattern id="cellp" width="8" height="8" patternUnits="userSpaceOnUse">
               <rect width="8" height="8" fill="none" stroke="#10201a" stroke-opacity=".55" stroke-width=".8"/>
             </pattern>
           </defs>
-          <text class="cap" x="80" y="80">ROLLO 58 CM · DEMOSTRACIÓN</text>
+          <text class="cap" x="80" y="80" data-en="58 CM ROLL · DEMO">ROLLO 58 CM · DEMOSTRACIÓN</text>
           <rect id="sheet" class="sheet" x="80" y="90" width="240" height="0"/>
           <line id="ruler" class="ruler" x1="336" y1="90" x2="336" y2="90"/>
           <text id="rtext" class="rtext" x="342" y="110"></text>
@@ -350,10 +412,10 @@ footer a{color:var(--ink-dim)}
           <text id="save" class="save" x="200" y="460" text-anchor="middle"></text>
           <g class="export" transform="translate(200 440)">
             <rect x="-86" y="-15" width="172" height="30" rx="3"/>
-            <text x="0" y="4.5" text-anchor="middle">hoja_1.png · 300 ppi</text>
+            <text x="0" y="4.5" text-anchor="middle" data-en="sheet_1.png · 300 ppi">hoja_1.png · 300 ppi</text>
           </g>
         </svg>
-        <div class="stage-foot"><span>piezas <b>9</b></span><span>largo <b id="len">—</b></span></div>
+        <div class="stage-foot"><span><span data-en="pieces">piezas</span> <b>9</b></span><span><span data-en="length">largo</span> <b id="len">—</b></span></div>
       </div>
     </div>
   </div>
@@ -361,155 +423,191 @@ footer a{color:var(--ink-dim)}
 
 <!-- SIMULADOR -->
 <section class="block" id="simulador"><div class="wrap">
-  <h2>Pruébalo aquí mismo.</h2>
-  <p class="sub">Un simulador con el mismo método del script: elige un diseño, cuántas copias y el ancho del rollo, y mira cuánta película se ahorra al encajar las siluetas.</p>
+  <h2 data-en="Try it right here.">Pruébalo aquí mismo.</h2>
+  <p class="sub" data-en="A simulator that uses the same idea as the script. Pick a design, the copies and the roll width, and compare both methods side by side, at the same scale.">Un simulador con la misma idea del script. Elige un diseño, las copias y el ancho del rollo, y compara los dos métodos lado a lado, a la misma escala.</p>
   <div class="sim">
-    <form class="ctl" onsubmit="return false" aria-label="Controles del simulador">
-      <fieldset>
-        <legend>Diseño</legend>
+    <form class="panel-ctl" onsubmit="return false" aria-label="Controles del simulador" data-en-aria="Simulator controls">
+      <div class="grp">
+        <p class="grp-t"><span data-en="Design">Diseño</span></p>
         <div class="chips" id="sim-design"></div>
-      </fieldset>
-      <div class="range"><label for="sim-n">Copias</label><output id="o-n" for="sim-n"></output>
-        <input id="sim-n" type="range" min="1" max="30" value="12"></div>
-      <div class="range"><label for="sim-w">Ancho del rollo</label><output id="o-w" for="sim-w"></output>
-        <input id="sim-w" type="range" min="20" max="60" step="1" value="45"></div>
-      <div class="range"><label for="sim-g">Separación de corte</label><output id="o-g" for="sim-g"></output>
-        <input id="sim-g" type="range" min="1" max="10" step="1" value="3"></div>
-      <fieldset>
-        <legend>Método</legend>
-        <div class="chips" id="sim-method">
-          <input type="radio" name="m" id="m-rect" value="rect"><label for="m-rect">Rectángulos</label>
-          <input type="radio" name="m" id="m-shape" value="shape" checked><label for="m-shape">Forma real</label>
+      </div>
+      <div class="grp">
+        <p class="grp-t"><label for="sim-n" data-en="Copies">Copias</label></p>
+        <div class="num-row">
+          <input id="sim-n" type="range" min="1" max="40" value="12" aria-label="Copias" data-en-aria="Copies">
+          <span class="unit"><input id="sim-n-v" type="number" min="1" max="40" value="12" aria-label="Copias" data-en-aria="Copies"></span>
         </div>
-      </fieldset>
-      <div class="toggles">
-        <label class="check"><input type="checkbox" id="sim-rot" checked> Permitir giros de 90°, 180° y 270°</label>
-        <label class="check"><input type="checkbox" id="sim-halo" checked> Ver la separación de corte</label>
+      </div>
+      <div class="grp">
+        <p class="grp-t"><label for="sim-w" data-en="Roll width">Ancho del rollo</label></p>
+        <div class="num-row">
+          <input id="sim-w" type="range" min="20" max="60" step="1" value="58" aria-label="Ancho del rollo" data-en-aria="Roll width">
+          <span class="unit"><input id="sim-w-v" type="number" min="20" max="60" value="58" aria-label="Ancho del rollo en cm" data-en-aria="Roll width in cm"><span>cm</span></span>
+        </div>
+        <div class="chips sm" id="sim-presets">
+          <input type="radio" name="wp" id="wp30" value="30"><label for="wp30">30 cm</label>
+          <input type="radio" name="wp" id="wp45" value="45"><label for="wp45">45 cm</label>
+          <input type="radio" name="wp" id="wp22" value="56"><label for="wp22">22 in</label>
+          <input type="radio" name="wp" id="wp58" value="58" checked><label for="wp58">58 cm</label>
+        </div>
+      </div>
+      <div class="grp">
+        <p class="grp-t"><label for="sim-g" data-en="Cutting gap">Separación de corte</label></p>
+        <div class="num-row">
+          <input id="sim-g" type="range" min="1" max="10" step="1" value="3" aria-label="Separación de corte" data-en-aria="Cutting gap">
+          <span class="unit"><input id="sim-g-v" type="number" min="1" max="10" value="3" aria-label="Separación en mm" data-en-aria="Gap in mm"><span>mm</span></span>
+        </div>
+      </div>
+      <div class="grp">
+        <label class="check"><input type="checkbox" id="sim-rot" checked> <span data-en="Allow 90°, 180° and 270° rotation">Permitir giros de 90°, 180° y 270°</span></label>
+        <label class="check"><input type="checkbox" id="sim-halo" checked> <span data-en="Show the cutting gap">Ver la separación de corte</span></label>
       </div>
     </form>
     <div class="out">
       <dl class="readout" aria-live="polite">
-        <div><dt>Largo de la hoja</dt><dd id="r-len">—</dd></div>
-        <div><dt>Aprovechamiento</dt><dd id="r-use">—</dd></div>
-        <div><dt>Frente a rectángulos</dt><dd id="r-save">—</dd></div>
+        <div><dt data-en="Rectangles">Rectángulos</dt><dd id="r-rect">—</dd></div>
+        <div><dt data-en="True shape">Forma real</dt><dd id="r-shape">—</dd></div>
+        <div><dt data-en="Film saved">Película ahorrada</dt><dd id="r-save">—</dd></div>
       </dl>
-      <div class="sheetbox"><svg id="sim-sheet" role="img" aria-label="Hoja de rollo con las copias acomodadas"></svg></div>
-      <p class="simwarn" id="sim-warn"></p>
-      <p class="simnote">Es una versión simplificada para entender la idea: el script real trabaja con tus diseños, tallas y varias hojas, y su resultado depende de la forma de cada uno. Las medidas del simulador son ilustrativas.</p>
+      <div class="sheetbox"><svg id="sim-sheet" role="img" aria-label="Comparación de las dos hojas" data-en-aria="Comparison of both sheets" preserveAspectRatio="xMidYMin meet"></svg></div>
+      <p class="simwarn" id="sim-warn" role="status"></p>
+      <p class="simnote" data-en="A simplified version to show the idea: the real script works with your designs, sizes and multiple sheets, and its result depends on each design's shape. The values here are illustrative.">Es una versión simplificada para entender la idea: el script real trabaja con tus diseños, tallas y varias hojas, y su resultado depende de la forma de cada uno. Las medidas del simulador son ilustrativas.</p>
     </div>
   </div>
 </div></section>
 
 <!-- FUNCIONES -->
 <section class="block" id="funciones"><div class="wrap">
-  <h2>Todo lo que pide un pedido real.</h2>
-  <p class="sub">Una sola ventana con tres pestañas: Acomodo, Cantidades y Salida. Esto es lo que entra en cada orden.</p>
+  <h2 data-en="Everything a real order needs.">Todo lo que pide un pedido real.</h2>
+  <p class="sub" data-en="A single window with three tabs: Arrange, Quantities and Output. This is what goes into every order.">Una sola ventana con tres pestañas: Acomodo, Cantidades y Salida. Esto es lo que entra en cada orden.</p>
   <dl class="order">
-    <div class="line"><dt>Tamaño original <span>0 % de cambio</span></dt><dd>Solo mueve y gira en múltiplos de 90°. Los grupos y las máscaras de recorte cuentan como una pieza.</dd></div>
-    <div class="line"><dt>Separación de corte <span>3 mm por defecto</span></dt><dd>Distancia mínima entre piezas y al borde, en mm, cm o pulgadas.</dd></div>
-    <div class="line"><dt>Forma real <span>0° · 90° · 180° · 270°</span></dt><dd>Encaja siluetas irregulares: una copia girada entra en el hueco de otra.</dd></div>
-    <div class="line"><dt>Rollo o mesa fija <span>ancho × largo</span></dt><dd>Ancho fijo con el largo mínimo, o dentro de la mesa de trabajo actual.</dd></div>
-    <div class="line"><dt>Cantidades y tallas <span>XS → 4XL</span></dt><dd>Copias por diseño y varias tallas a la vez, con etiqueta discreta en su propia capa.</dd></div>
-    <div class="line"><dt>Varias hojas <span>largo máx. por hoja</span></dt><dd>Lo que no cabe continúa en mesas de trabajo nuevas.</dd></div>
-    <div class="line"><dt>Revisión previa <span>ppi · vínculos · líneas</span></dt><dd>Avisa de baja resolución, vínculos rotos, líneas muy finas y textos sin contornos.</dd></div>
-    <div class="line"><dt>Largo y costo <span>cm · m · in · ft</span></dt><dd>Largo exacto, redondeado o tamaño estándar, con costo estimado.</dd></div>
-    <div class="line"><dt>Salida para el RIP <span>PNG · 300 ppi</span></dt><dd>Transparente, uno por hoja, con la medida en el nombre del archivo.</dd></div>
-    <div class="line"><dt>Lo que eliges, lo ves <span>selección en vivo</span></dt><dd>Al elegir un diseño en la lista se resalta en el lienzo. Recuerda tus últimos ajustes.</dd></div>
+    <div class="line"><dt><b data-en="Original size">Tamaño original</b> <span data-en="0 % change">0 % de cambio</span></dt><dd data-en="Only moves and rotates in 90° steps. Groups and clipping masks count as one piece.">Solo mueve y gira en múltiplos de 90°. Los grupos y las máscaras de recorte cuentan como una pieza.</dd></div>
+    <div class="line"><dt><b data-en="Cutting gap">Separación de corte</b> <span data-en="3 mm by default">3 mm por defecto</span></dt><dd data-en="Minimum distance between pieces and to the edge, in mm, cm or inches.">Distancia mínima entre piezas y al borde, en mm, cm o pulgadas.</dd></div>
+    <div class="line"><dt><b data-en="True shape">Forma real</b> <span>0° · 90° · 180° · 270°</span></dt><dd data-en="Nests irregular silhouettes: a rotated copy fits into another one's gap.">Encaja siluetas irregulares: una copia girada entra en el hueco de otra.</dd></div>
+    <div class="line"><dt><b data-en="Roll or fixed sheet">Rollo o mesa fija</b> <span data-en="width × length">ancho × largo</span></dt><dd data-en="Fixed width with the shortest length, or inside the current artboard.">Ancho fijo con el largo mínimo, o dentro de la mesa de trabajo actual.</dd></div>
+    <div class="line"><dt><b data-en="Quantities and sizes">Cantidades y tallas</b> <span>XS → 4XL</span></dt><dd data-en="Copies per design and several sizes at once, with a discreet label on its own layer.">Copias por diseño y varias tallas a la vez, con etiqueta discreta en su propia capa.</dd></div>
+    <div class="line"><dt><b data-en="Multiple sheets">Varias hojas</b> <span data-en="max length per sheet">largo máx. por hoja</span></dt><dd data-en="Whatever doesn't fit continues on new artboards.">Lo que no cabe continúa en mesas de trabajo nuevas.</dd></div>
+    <div class="line"><dt><b data-en="Preflight">Revisión previa</b> <span data-en="ppi · links · lines">ppi · vínculos · líneas</span></dt><dd data-en="Warns about low resolution, broken links, hairlines and live text.">Avisa de baja resolución, vínculos rotos, líneas muy finas y textos sin contornos.</dd></div>
+    <div class="line"><dt><b data-en="Length and cost">Largo y costo</b> <span>cm · m · in · ft</span></dt><dd data-en="Exact, rounded or standard length, with an estimated cost.">Largo exacto, redondeado o tamaño estándar, con costo estimado.</dd></div>
+    <div class="line"><dt><b data-en="Output for the RIP">Salida para el RIP</b> <span>PNG · 300 ppi</span></dt><dd data-en="Transparent, one per sheet, with the size in the file name.">Transparente, uno por hoja, con la medida en el nombre del archivo.</dd></div>
+    <div class="line"><dt><b data-en="What you pick, you see">Lo que eliges, lo ves</b> <span data-en="live selection">selección en vivo</span></dt><dd data-en="Picking a design in the list highlights it on the canvas. It remembers your last settings.">Al elegir un diseño en la lista se resalta en el lienzo. Recuerda tus últimos ajustes.</dd></div>
   </dl>
 </div></section>
 
 <!-- INSTALACIÓN -->
 <section class="block" id="instalar"><div class="wrap">
-  <h2>Un archivo, tres pasos.</h2>
-  <p class="sub">Sin instalador, sin cuenta y sin conexión a internet.</p>
+  <h2 data-en="One file, three steps.">Un archivo, tres pasos.</h2>
+  <p class="sub" data-en="No installer, no account and no internet connection.">Sin instalador, sin cuenta y sin conexión a internet.</p>
   <div class="install">
     <div>
       <div class="file">
         <svg viewBox="0 0 48 56" aria-hidden="true"><path d="M2 2h30l14 14v38H2z" fill="none" stroke="#efe8d8" stroke-width="1.5"/><path d="M32 2v14h14" fill="none" stroke="#efe8d8" stroke-width="1.5"/><rect x="2" y="32" width="32" height="14" fill="#ff5b1f"/><text x="6" y="43" font-size="10" font-family="IBM Plex Mono,monospace" fill="#160b05" font-weight="500">.JSX</text></svg>
-        <div><b>AutoSort-Gangsheet.jsx</b><span>ExtendScript para Illustrator CC 2018 o posterior</span></div>
+        <div><b>AutoSort-Gangsheet.jsx</b><span data-en="ExtendScript for Illustrator CC 2018 or later">ExtendScript para Illustrator CC 2018 o posterior</span></div>
       </div>
       <a class="btn" href="download/AutoSort-Gangsheet.jsx" download>
         <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1v9m0 0L4 6m4 4 4-4M2 14h12" stroke="currentColor" stroke-width="2" fill="none"/></svg>
-        Descargar el script
+        <span data-en="Download the script">Descargar el script</span>
       </a>
-      <span class="hint">Si el navegador lo abre como texto: clic derecho → <i>Guardar enlace como…</i></span>
+      <span class="hint" data-en="If your browser opens it as text: right-click → <i>Save link as…</i>">Si el navegador lo abre como texto: clic derecho → <i>Guardar enlace como…</i></span>
     </div>
     <div>
       <ol class="path">
-        <li><b>Cierra Illustrator</b><p>Así reconoce el archivo nuevo al abrir.</p></li>
-        <li><b>Copia el archivo a la carpeta de scripts</b><p>Windows: <code>C:\Program Files\Adobe\Adobe Illustrator &lt;versión&gt;\Presets\&lt;idioma&gt;\Scripts\</code><br>macOS: <code>/Applications/Adobe Illustrator &lt;versión&gt;/Presets.localized/&lt;idioma&gt;/Scripts/</code></p></li>
-        <li><b>Ejecútalo</b><p>Archivo → Secuencias de comandos → <i>AutoSort-Gangsheet</i>. Sin instalar: <i>Otra secuencia de comandos…</i> y elige el archivo.</p></li>
+        <li><b data-en="Close Illustrator">Cierra Illustrator</b><p data-en="So it picks up the new file when it opens.">Así reconoce el archivo nuevo al abrir.</p></li>
+        <li><b data-en="Copy the file to the scripts folder">Copia el archivo a la carpeta de scripts</b><p>Windows: <code>C:\Program Files\Adobe\Adobe Illustrator &lt;versión&gt;\Presets\&lt;idioma&gt;\Scripts\</code><br>macOS: <code>/Applications/Adobe Illustrator &lt;versión&gt;/Presets.localized/&lt;idioma&gt;/Scripts/</code></p></li>
+        <li><b data-en="Run it">Ejecútalo</b><p data-en="File → Scripts → <i>AutoSort-Gangsheet</i>. Without installing: <i>Other Script…</i> and pick the file.">Archivo → Secuencias de comandos → <i>AutoSort-Gangsheet</i>. Sin instalar: <i>Otra secuencia de comandos…</i> y elige el archivo.</p></li>
       </ol>
-      <p class="note"><b>Al actualizar:</b> reemplaza el archivo y reinicia Illustrator; a veces sigue usando la copia que cargó al abrir.</p>
+      <p class="note" data-en="<b>When updating:</b> replace the file and restart Illustrator; sometimes it keeps using the copy it loaded at startup."><b>Al actualizar:</b> reemplaza el archivo y reinicia Illustrator; a veces sigue usando la copia que cargó al abrir.</p>
     </div>
   </div>
 </div></section>
 
 <!-- OPCIONES -->
 <section class="block" id="opciones"><div class="wrap">
-  <h2>Tres pestañas, cero sorpresas.</h2>
-  <p class="sub">Todo lo que puedes ajustar antes de pulsar Acomodar.</p>
-  <div class="tabs" role="tablist" aria-label="Pestañas del script">
-    <button role="tab" id="tb1" aria-selected="true" aria-controls="t1" data-tab="t1">Acomodo</button>
-    <button role="tab" id="tb2" aria-selected="false" aria-controls="t2" data-tab="t2" tabindex="-1">Cantidades</button>
-    <button role="tab" id="tb3" aria-selected="false" aria-controls="t3" data-tab="t3" tabindex="-1">Salida</button>
+  <h2 data-en="Three tabs, no surprises.">Tres pestañas, cero sorpresas.</h2>
+  <p class="sub" data-en="Everything you can adjust before pressing Arrange.">Todo lo que puedes ajustar antes de pulsar Acomodar.</p>
+  <div class="tabs" role="tablist" aria-label="Pestañas del script" data-en-aria="Script tabs">
+    <button role="tab" id="tb1" aria-selected="true" aria-controls="t1" data-tab="t1" data-en="Arrange">Acomodo</button>
+    <button role="tab" id="tb2" aria-selected="false" aria-controls="t2" data-tab="t2" tabindex="-1" data-en="Quantities">Cantidades</button>
+    <button role="tab" id="tb3" aria-selected="false" aria-controls="t3" data-tab="t3" tabindex="-1" data-en="Output">Salida</button>
   </div>
   <div class="panel on" id="t1" role="tabpanel" aria-labelledby="tb1"><dl class="rows">
-    <div><dt>Elementos</dt><dd>Selección actual, o todo lo visible y desbloqueado.</dd></div>
-    <div><dt>Lienzo</dt><dd>Rollo (ancho fijo, largo automático) o mesa de trabajo actual.</dd></div>
-    <div><dt>Separación y margen</dt><dd>Espacio mínimo entre piezas y hasta el borde de la hoja.</dd></div>
-    <div><dt>Rotación</dt><dd>No rotar, o girar en sentido horario o antihorario.</dd></div>
-    <div><dt>Calidad</dt><dd>Rápida, Normal o Máxima (prueba más combinaciones; más lenta).</dd></div>
-    <div><dt>Método</dt><dd>Rectángulos (rápido) o Forma real (encaja siluetas).</dd></div>
-    <div><dt>Precisión</dt><dd>Solo forma real: cuadrícula de 1, 2, 3 o 5 mm. 2 mm es un buen equilibrio.</dd></div>
-    <div><dt>Varias hojas</dt><dd>Continúa en hojas nuevas; largo máximo por hoja y máximo de hojas.</dd></div>
+    <div><dt data-en="Items">Elementos</dt><dd data-en="Current selection, or everything visible and unlocked.">Selección actual, o todo lo visible y desbloqueado.</dd></div>
+    <div><dt data-en="Canvas">Lienzo</dt><dd data-en="Roll (fixed width, automatic length) or the current artboard.">Rollo (ancho fijo, largo automático) o mesa de trabajo actual.</dd></div>
+    <div><dt data-en="Gap and margin">Separación y margen</dt><dd data-en="Minimum space between pieces and to the sheet edge.">Espacio mínimo entre piezas y hasta el borde de la hoja.</dd></div>
+    <div><dt data-en="Rotation">Rotación</dt><dd data-en="Don't rotate, or rotate clockwise or counterclockwise.">No rotar, o girar en sentido horario o antihorario.</dd></div>
+    <div><dt data-en="Quality">Calidad</dt><dd data-en="Fast, Normal or Maximum (tries more combinations; slower).">Rápida, Normal o Máxima (prueba más combinaciones; más lenta).</dd></div>
+    <div><dt data-en="Method">Método</dt><dd data-en="Rectangles (fast) or True shape (nests silhouettes).">Rectángulos (rápido) o Forma real (encaja siluetas).</dd></div>
+    <div><dt data-en="Precision">Precisión</dt><dd data-en="True shape only: 1, 2, 3 or 5 mm grid. 2 mm is a good balance.">Solo forma real: cuadrícula de 1, 2, 3 o 5 mm. 2 mm es un buen equilibrio.</dd></div>
+    <div><dt data-en="Multiple sheets">Varias hojas</dt><dd data-en="Continues on new sheets; max length per sheet and max number of sheets.">Continúa en hojas nuevas; largo máximo por hoja y máximo de hojas.</dd></div>
   </dl></div>
   <div class="panel" id="t2" role="tabpanel" aria-labelledby="tb2"><dl class="rows">
-    <div><dt>Asignar copias</dt><dd>Cuántas copias se acomodan de cada fila (0 = no acomodar).</dd></div>
-    <div><dt>Tallas por diseño…</dt><dd>XS a 4XL, sin etiqueta y 3 tallas personalizadas, para uno o varios diseños a la vez.</dd></div>
-    <div><dt>Asignar o agregar talla</dt><dd>Pone una talla a las filas, o crea otra fila del mismo diseño.</dd></div>
-    <div><dt>Quitar fila / Reiniciar</dt><dd>Quita filas o vuelve al estado inicial.</dd></div>
-    <div><dt>Mostrar en el lienzo</dt><dd>Selecciona y centra la pieza elegida en la lista.</dd></div>
-    <div><dt>Atajo en el nombre</dt><dd>Un objeto llamado <code>Logo x10</code> toma 10 copias automáticamente.</dd></div>
+    <div><dt data-en="Set copies">Asignar copias</dt><dd data-en="How many copies of each row are arranged (0 = skip).">Cuántas copias se acomodan de cada fila (0 = no acomodar).</dd></div>
+    <div><dt data-en="Sizes per design…">Tallas por diseño…</dt><dd data-en="XS to 4XL, no label and 3 custom sizes, for one or several designs at once.">XS a 4XL, sin etiqueta y 3 tallas personalizadas, para uno o varios diseños a la vez.</dd></div>
+    <div><dt data-en="Set or add size">Asignar o agregar talla</dt><dd data-en="Gives the rows a size, or adds another row of the same design.">Pone una talla a las filas, o crea otra fila del mismo diseño.</dd></div>
+    <div><dt data-en="Remove row / Reset">Quitar fila / Reiniciar</dt><dd data-en="Removes rows or goes back to the start.">Quita filas o vuelve al estado inicial.</dd></div>
+    <div><dt data-en="Show on canvas">Mostrar en el lienzo</dt><dd data-en="Selects and centers the design picked in the list.">Selecciona y centra la pieza elegida en la lista.</dd></div>
+    <div><dt data-en="Name shortcut">Atajo en el nombre</dt><dd data-en="An object named <code>Logo x10</code> gets 10 copies automatically.">Un objeto llamado <code>Logo x10</code> toma 10 copias automáticamente.</dd></div>
   </dl></div>
   <div class="panel" id="t3" role="tabpanel" aria-labelledby="tb3"><dl class="rows">
-    <div><dt>Ajustar mesa de trabajo</dt><dd>En modo rollo, cambia el largo del artboard al resultado.</dd></div>
-    <div><dt>Largo</dt><dd>Exacto, redondeado a unidad entera, o el menor tamaño estándar donde quepa.</dd></div>
-    <div><dt>Costo estimado</dt><dd>Precio por cm, m, in o ft de largo (0 = no calcular).</dd></div>
-    <div><dt>Exportar PNG</dt><dd>Transparente a la resolución que elijas (300 ppi por defecto), uno por hoja, en la carpeta del documento.</dd></div>
-    <div><dt>Revisión previa</dt><dd>Resolución mínima (ppi) y grosor mínimo de línea.</dd></div>
+    <div><dt data-en="Fit artboard">Ajustar mesa de trabajo</dt><dd data-en="In roll mode, sets the artboard length to the result.">En modo rollo, cambia el largo del artboard al resultado.</dd></div>
+    <div><dt data-en="Length">Largo</dt><dd data-en="Exact, rounded to a whole unit, or the smallest standard size that fits.">Exacto, redondeado a unidad entera, o el menor tamaño estándar donde quepa.</dd></div>
+    <div><dt data-en="Estimated cost">Costo estimado</dt><dd data-en="Price per cm, m, in or ft of length (0 = don't calculate).">Precio por cm, m, in o ft de largo (0 = no calcular).</dd></div>
+    <div><dt data-en="Export PNG">Exportar PNG</dt><dd data-en="Transparent at the resolution you choose (300 ppi by default), one per sheet, in the document's folder.">Transparente a la resolución que elijas (300 ppi por defecto), uno por hoja, en la carpeta del documento.</dd></div>
+    <div><dt data-en="Preflight">Revisión previa</dt><dd data-en="Minimum resolution (ppi) and minimum line weight.">Resolución mínima (ppi) y grosor mínimo de línea.</dd></div>
   </dl></div>
+</div></section>
+
+<!-- CÓDIGO ABIERTO -->
+<section class="block" id="codigo-abierto"><div class="wrap">
+  <h2 data-en="Open source, on purpose.">Código abierto, a propósito.</h2>
+  <div class="oss">
+    <div>
+      <p data-en="AutoSort is <b>free and open source</b> under the MIT license: you can use it, read it, modify it and share it, including in your shop's commercial work, without asking for permission or paying anything.">AutoSort es <b>gratuito y de código abierto</b> bajo la licencia MIT: puedes usarlo, leerlo, modificarlo y compartirlo, incluso en el trabajo comercial de tu taller, sin pedir permiso ni pagar nada.</p>
+      <p data-en="I built it to solve a problem from my own day-to-day work. If it saves me hours and film, it can do the same for other people who print DTF, and that is worth more shared than kept in a drawer.">Lo hice para resolver un problema de mi trabajo diario. Si a mí me ahorra horas y película, puede hacer lo mismo por otras personas que imprimen DTF, y eso vale más compartido que guardado en un cajón.</p>
+      <div class="links">
+        <a class="btn" href="https://github.com/eguiajosue/auto-sort" data-en="See the code on GitHub">Ver el código en GitHub</a>
+        <a class="btn quiet" href="https://github.com/eguiajosue/auto-sort/blob/main/LICENSE" data-en="Read the license">Leer la licencia</a>
+      </div>
+    </div>
+    <ul class="why">
+      <li><b data-en="You can see what it does">Puedes ver qué hace</b><span data-en="It runs on your files and your machine. Every line is public, so you know it only arranges, never sends anything anywhere.">Corre sobre tus archivos y en tu equipo. Cada línea es pública, así sabes que solo acomoda y no envía nada a ningún lado.</span></li>
+      <li><b data-en="It gets better with more eyes">Mejora con más ojos</b><span data-en="Whoever finds a bug or has an idea can report it or propose the fix, and everyone benefits.">Quien encuentre un error o tenga una idea puede reportarlo o proponer la corrección, y todos salimos ganando.</span></li>
+      <li><b data-en="It doesn't depend on me">No depende de mí</b><span data-en="If you need something specific for your shop, you can adapt it yourself without waiting for anyone.">Si necesitas algo específico para tu taller, puedes adaptarlo tú mismo sin esperar a nadie.</span></li>
+      <li><b data-en="It stays free">Sigue siendo gratis</b><span data-en="No subscriptions, accounts or limits on copies or sheets.">Sin suscripciones, cuentas ni límites de copias u hojas.</span></li>
+    </ul>
+  </div>
 </div></section>
 
 <!-- FAQ -->
 <section class="block" id="faq"><div class="wrap">
-  <h2>Lo que suelen preguntar.</h2>
-  <p class="sub">Y si no está aquí, abre un <a href="https://github.com/eguiajosue/auto-sort/issues">issue en GitHub</a>.</p>
+  <h2 data-en="Frequently asked.">Lo que suelen preguntar.</h2>
+  <p class="sub" data-en="And if it's not here, open an <a href='https://github.com/eguiajosue/auto-sort/issues'>issue on GitHub</a>.">Y si no está aquí, abre un <a href="https://github.com/eguiajosue/auto-sort/issues">issue en GitHub</a>.</p>
   <div class="faq">
-    <details><summary>¿Cambia el tamaño de mis diseños?</summary><p>No. Solo cambia su posición y los gira en múltiplos de 90°. Las copias son duplicados a tamaño original.</p></details>
-    <details><summary>¿Cuándo uso «Forma real» y cuándo «Rectángulos»?</summary><p>Forma real ahorra más película con diseños irregulares (flechas, logos con huecos, textos curvos), pero tarda más. Para diseños casi rectangulares, Rectángulos rinde igual y es más rápido.</p></details>
-    <details><summary>Forma real tarda mucho.</summary><p>Sube la precisión a 3 o 5 mm, usa calidad Rápida o acomoda por tandas con Varias hojas.</p></details>
-    <details><summary>Dice «sin silueta legible».</summary><p>No pudo capturar la silueta de ese diseño y usó su rectángulo. El resultado es correcto, solo sin el ahorro de forma real para ese diseño.</p></details>
-    <details><summary>La etiqueta de talla se imprime.</summary><p>Sí, va en la película. Queda separada del diseño para recortarla, o oculta la capa «Etiquetas de talla» antes de imprimir o exportar.</p></details>
-    <details><summary>¿Hay un límite de tamaño?</summary><p>El lienzo de Illustrator mide unos 577 × 577 cm. Si la hoja no cabe, el script sube la mesa de trabajo o te sugiere Varias hojas, sin modificar nada.</p></details>
-    <details><summary>¿Cómo trata los grupos?</summary><p>Como una sola pieza. Si seleccionas algo dentro de un grupo, se acomoda el grupo completo.</p></details>
-    <details><summary>Aparece un error al ejecutarlo.</summary><p>Confirma que tienes la versión más reciente, reemplaza el archivo y reinicia Illustrator. Si sigue, abre un <a href="https://github.com/eguiajosue/auto-sort/issues">issue</a> con una captura que muestre la línea del error.</p></details>
+    <details><summary data-en="Why Illustrator and not Photoshop?">¿Por qué es para Illustrator y no para Photoshop?</summary><p data-en="Because in the department where I work we mostly work with vectors: logos, text and artwork that have to stay sharp at any size and be cut cleanly. Illustrator is where those files already live, so I built AutoSort there to improve the quality of my own work, without converting or flattening anything along the way.">Porque en el departamento donde trabajo se trabaja sobre todo con vectores: logos, textos y arte que deben verse nítidos a cualquier tamaño y cortarse limpio. Illustrator es donde ya viven esos archivos, así que hice AutoSort ahí para mejorar la calidad de mi trabajo, sin convertir ni aplanar nada en el camino.</p></details>
+    <details><summary data-en="Does it change the size of my designs?">¿Cambia el tamaño de mis diseños?</summary><p data-en="No. It only changes their position and rotates them in 90° steps. Copies are duplicates at the original size.">No. Solo cambia su posición y los gira en múltiplos de 90°. Las copias son duplicados a tamaño original.</p></details>
+    <details><summary data-en="When should I use True shape vs. Rectangles?">¿Cuándo uso «Forma real» y cuándo «Rectángulos»?</summary><p data-en="True shape saves more film with irregular designs (arrows, logos with holes, curved text), but takes longer. For nearly rectangular designs, Rectangles performs the same and is faster.">Forma real ahorra más película con diseños irregulares (flechas, logos con huecos, textos curvos), pero tarda más. Para diseños casi rectangulares, Rectángulos rinde igual y es más rápido.</p></details>
+    <details><summary data-en="True shape takes too long.">Forma real tarda mucho.</summary><p data-en="Raise the precision to 3 or 5 mm, use Fast quality, or arrange in batches with Multiple sheets.">Sube la precisión a 3 o 5 mm, usa calidad Rápida o acomoda por tandas con Varias hojas.</p></details>
+    <details><summary data-en="It says “no readable silhouette”.">Dice «sin silueta legible».</summary><p data-en="It couldn't capture that design's silhouette and used its rectangle. The result is correct, just without the true-shape savings for that design.">No pudo capturar la silueta de ese diseño y usó su rectángulo. El resultado es correcto, solo sin el ahorro de forma real para ese diseño.</p></details>
+    <details><summary data-en="The size label gets printed.">La etiqueta de talla se imprime.</summary><p data-en="Yes, it goes on the film. It sits apart from the design so you can trim it, or hide the “Etiquetas de talla” layer before printing or exporting.">Sí, va en la película. Queda separada del diseño para recortarla, o oculta la capa «Etiquetas de talla» antes de imprimir o exportar.</p></details>
+    <details><summary data-en="Is there a size limit?">¿Hay un límite de tamaño?</summary><p data-en="Illustrator's canvas is about 577 × 577 cm. If the sheet doesn't fit, the script moves the artboard up or suggests Multiple sheets, without changing anything.">El lienzo de Illustrator mide unos 577 × 577 cm. Si la hoja no cabe, el script sube la mesa de trabajo o te sugiere Varias hojas, sin modificar nada.</p></details>
+    <details><summary data-en="How does it handle groups?">¿Cómo trata los grupos?</summary><p data-en="As a single piece. If you select something inside a group, the whole group is arranged.">Como una sola pieza. Si seleccionas algo dentro de un grupo, se acomoda el grupo completo.</p></details>
+    <details><summary data-en="I get an error when I run it.">Aparece un error al ejecutarlo.</summary><p data-en="Make sure you have the latest version, replace the file and restart Illustrator. If it persists, open an <a href='https://github.com/eguiajosue/auto-sort/issues'>issue</a> with a screenshot that shows the error line.">Confirma que tienes la versión más reciente, reemplaza el archivo y reinicia Illustrator. Si sigue, abre un <a href="https://github.com/eguiajosue/auto-sort/issues">issue</a> con una captura que muestre la línea del error.</p></details>
   </div>
 </div></section>
 
 <section class="final"><div class="wrap">
-  <h2>Deja de acomodar a mano.</h2>
-  <p>Gratis y en un solo archivo. Tu próximo pedido, en menos película.</p>
+  <h2 data-en="Stop arranging by hand.">Deja de acomodar a mano.</h2>
+  <p data-en="Free, open source and in a single file. Your next order, on less film.">Gratis, de código abierto y en un solo archivo. Tu próximo pedido, en menos película.</p>
   <a class="btn" href="download/AutoSort-Gangsheet.jsx" download>
     <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1v9m0 0L4 6m4 4 4-4M2 14h12" stroke="currentColor" stroke-width="2" fill="none"/></svg>
-    Descargar AutoSort
+    <span data-en="Download AutoSort">Descargar AutoSort</span>
   </a>
 </div></section>
 </main>
 
 <footer><div class="wrap">
-  <span>AutoSort Gangsheet DTF</span>
-  <span><a href="https://github.com/eguiajosue/auto-sort">Código en GitHub</a> · <a href="https://github.com/eguiajosue/auto-sort/issues">Reportar un problema</a></span>
+  <span><span data-en="AutoSort Gangsheet DTF · MIT license">AutoSort Gangsheet DTF · licencia MIT</span></span>
+  <span><a href="https://github.com/eguiajosue/auto-sort" data-en="Code on GitHub">Código en GitHub</a> · <a href="https://github.com/eguiajosue/auto-sort/issues" data-en="Report a problem">Reportar un problema</a></span>
 </div></footer>
 
 <script>
@@ -518,7 +616,85 @@ footer a{color:var(--ink-dim)}
   var NS = "http://www.w3.org/2000/svg";
   var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  // ---------- geometría de la demostración ----------
+  // ======================= IDIOMA =======================
+  // El HTML trae el texto en español; data-en guarda el inglés.
+  var STR = {
+    es: {
+      titles: ["entrada", "medición", "rectángulos", "forma real", "tallas", "salida"],
+      save: "% de película en esta hoja", designs: ["Flecha", "Círculo", "Letra L", "Estrella"],
+      rect: "Rectángulos", shape: "Forma real", film: "de película", none: "sin ahorro",
+      noFit: "El diseño no cabe en ese ancho de rollo. Aumenta el ancho o permite los giros.",
+      docTitle: "AutoSort Gangsheet DTF — script para Adobe Illustrator"
+    },
+    en: {
+      titles: ["input", "measure", "rectangles", "true shape", "sizes", "output"],
+      save: "% film on this sheet", designs: ["Arrow", "Circle", "Letter L", "Star"],
+      rect: "Rectangles", shape: "True shape", film: "film", none: "no savings",
+      noFit: "The design doesn't fit that roll width. Make it wider or allow rotation.",
+      docTitle: "AutoSort Gangsheet DTF — script for Adobe Illustrator"
+    }
+  };
+  var lang = "es";
+  try { var saved = localStorage.getItem("autosort-lang"); if (saved === "en" || saved === "es") lang = saved; } catch (e) { }
+  if (lang === "es" && !localStorage_has() && /^en/i.test(navigator.language || "")) lang = "en";
+  function localStorage_has() { try { return localStorage.getItem("autosort-lang") !== null; } catch (e) { return false; } }
+  function t(k) { return STR[lang][k]; }
+  var onLang = [];
+  // Conserva el punto de lectura: el texto cambia de largo al traducirse.
+  function anchorTop() {
+    var c = document.querySelectorAll("main section, .step, .line, details, .why li"), i, r;
+    for (i = 0; i < c.length; i++) { r = c[i].getBoundingClientRect(); if (r.bottom > 80) return { el: c[i], top: r.top }; }
+    return null;
+  }
+  function applyLang(l) {
+    var anchor = anchorTop();
+    lang = l;
+    document.documentElement.lang = l;
+    document.querySelectorAll("[data-en]").forEach(function (n) {
+      if (n.dataset.es === undefined) n.dataset.es = n.innerHTML;
+      n.innerHTML = l === "en" ? n.dataset.en : n.dataset.es;
+    });
+    document.querySelectorAll("[data-en-aria]").forEach(function (n) {
+      if (n.dataset.esAria === undefined) n.dataset.esAria = n.getAttribute("aria-label");
+      n.setAttribute("aria-label", l === "en" ? n.dataset.enAria : n.dataset.esAria);
+    });
+    document.querySelectorAll(".lang button").forEach(function (b) { b.setAttribute("aria-pressed", b.dataset.lang === l ? "true" : "false"); });
+    document.title = t("docTitle");
+    try { localStorage.setItem("autosort-lang", l); } catch (e) { }
+    onLang.forEach(function (f) { f(); });
+    if (anchor) window.scrollBy({ top: anchor.el.getBoundingClientRect().top - anchor.top, behavior: "instant" });
+  }
+  document.querySelectorAll(".lang button").forEach(function (b) {
+    b.addEventListener("click", function () { if (b.dataset.lang !== lang) applyLang(b.dataset.lang); });
+  });
+
+  // ======================= NAVEGACIÓN =======================
+  var nav = document.getElementById("nav"), menuBtn = document.getElementById("menuBtn");
+  menuBtn.addEventListener("click", function () {
+    var open = !nav.classList.contains("open");
+    nav.classList.toggle("open", open);
+    menuBtn.setAttribute("aria-expanded", open ? "true" : "false");
+  });
+  nav.addEventListener("click", function (e) {
+    if (e.target.closest("a")) { nav.classList.remove("open"); menuBtn.setAttribute("aria-expanded", "false"); }
+  });
+  // Resalta la sección visible.
+  var links = Array.prototype.slice.call(nav.querySelectorAll("a"));
+  if ("IntersectionObserver" in window) {
+    var spy = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) {
+        if (!en.isIntersecting) return;
+        links.forEach(function (a) {
+          var on = a.getAttribute("href") === "#" + en.target.id;
+          a.classList.toggle("on", on);
+          if (on) a.setAttribute("aria-current", "true"); else a.removeAttribute("aria-current");
+        });
+      });
+    }, { rootMargin: "-40% 0px -55% 0px" });
+    links.forEach(function (a) { var s = document.querySelector(a.getAttribute("href")); if (s) spy.observe(s); });
+  }
+
+  // ======================= HISTORIA ANIMADA =======================
   // Flecha "<" de 110 x 56 centrada en el origen. 1 unidad = 0.4 cm (ilustrativo).
   var CHEV = "M-55 0 L55 -28 L29 0 L55 28 Z";
   var CIRC = "M-25 0 A25 25 0 1 0 25 0 A25 25 0 1 0 -25 0 Z";
@@ -536,7 +712,6 @@ footer a{color:var(--ink-dim)}
     { kind: "circ", d: CIRC, w: 50, h: 50, tag: "M" },
     { kind: "blob", d: BLOB, w: 50, h: 50, tag: "L" }
   ];
-
   var scatter = [
     [110, 90, 0], [300, 70, 0], [250, 190, 0], [95, 250, 0], [290, 330, 0],
     [130, 410, 0], [215, 110, 0], [330, 440, 0], [60, 160, 0]
@@ -555,46 +730,37 @@ footer a{color:var(--ink-dim)}
     [LEFT + 29, c0, 0], [LEFT + 87, c0, 0], [LEFT + 145, c0, 0]
   ];
   var shapeLen = c0 + 25 + 4 - TOP;
-
   var layouts = [scatter, scatter, rect, shape, shape, shape];
   var sheetLen = [0, 0, rectLen, shapeLen, shapeLen, shapeLen];
-  var titles = ["entrada", "medición", "rectángulos", "forma real", "tallas", "salida"];
 
-  document.getElementById("save").textContent =
-    "−" + Math.round((1 - shapeLen / rectLen) * 100) + " % de película en esta hoja";
-
-  var root = document.getElementById("pieces");
   function el(name, attrs, parent) {
     var e = document.createElementNS(NS, name), k;
     for (k in attrs) e.setAttribute(k, attrs[k]);
     if (parent) parent.appendChild(e);
     return e;
   }
-
+  var root = document.getElementById("pieces");
   pieces.forEach(function (p, i) {
     var g = el("g", { "class": "piece " + p.kind }, root);
     el("path", { "class": "halo", d: p.d }, g);
     el("rect", { "class": "bbox", x: -p.w / 2 - 2, y: -p.h / 2 - 2, width: p.w + 4, height: p.h + 4 }, g);
     el("path", { "class": "shape", d: p.d }, g);
     el("path", { "class": "cells", d: p.d, fill: "url(#cellp)" }, g);
-    // línea de corte un poco por fuera de la silueta
     el("path", { "class": "cutline", d: p.d, transform: "scale(" + ((p.w + 7) / p.w) + " " + ((p.h + 7) / p.h) + ")" }, g);
     var tg = el("g", { transform: "translate(" + (p.kind === "chev" ? 40 : 0) + " 0)" }, g);
     var tin = el("g", {}, tg); // contragiro: el texto nunca queda de cabeza
     el("rect", { "class": "tagbg", x: -11, y: -7, width: 22, height: 14, rx: 2 }, tin);
     el("text", { "class": "tag", x: 0, y: 3.5, "text-anchor": "middle" }, tin).textContent = p.tag;
-    p.g = g;
-    p.tagg = tin;
+    p.g = g; p.tagg = tin;
     g.style.transitionDelay = Math.min(i * 40, 240) + "ms";
   });
 
-  // ---------- largo de la hoja (regla y contador) ----------
-  var sheet = document.getElementById("sheet"), ruler = document.getElementById("ruler");
+  var sheetEl = document.getElementById("sheet"), ruler = document.getElementById("ruler");
   var rtext = document.getElementById("rtext"), lenOut = document.getElementById("len");
   var curLen = 0, anim = null;
   function drawLen(v) {
-    sheet.setAttribute("height", Math.max(0, v));
-    sheet.style.opacity = v > 1 ? 1 : 0;
+    sheetEl.setAttribute("height", Math.max(0, v));
+    sheetEl.style.opacity = v > 1 ? 1 : 0;
     ruler.setAttribute("y2", TOP + v);
     rtext.setAttribute("y", TOP + v / 2 + 4);
     var txt = v > 1 ? (v * SCALE).toFixed(1) + " cm" : "";
@@ -605,10 +771,9 @@ footer a{color:var(--ink-dim)}
     if (anim) cancelAnimationFrame(anim);
     if (reduce) { curLen = to; drawLen(to); return; }
     var from = curLen, t0 = null, dur = 900;
-    function frame(t) {
-      if (t0 === null) t0 = t;
-      var k = Math.min(1, (t - t0) / dur);
-      var e = 1 - Math.pow(1 - k, 4); // desaceleración exponencial
+    function frame(ts) {
+      if (t0 === null) t0 = ts;
+      var k = Math.min(1, (ts - t0) / dur), e = 1 - Math.pow(1 - k, 4);
       curLen = from + (to - from) * e;
       drawLen(curLen);
       if (k < 1) anim = requestAnimationFrame(frame);
@@ -616,12 +781,15 @@ footer a{color:var(--ink-dim)}
     anim = requestAnimationFrame(frame);
   }
 
-  // ---------- pasos ----------
   var stage = document.getElementById("stage");
   var ticks = document.querySelectorAll("#ticks i");
   var title = document.getElementById("stageTitle");
   var steps = document.querySelectorAll(".step");
   var current = -1;
+  function stageText() {
+    title.textContent = (current + 1) + "/6 · " + t("titles")[current];
+    document.getElementById("save").textContent = "−" + Math.round((1 - shapeLen / rectLen) * 100) + " " + t("save");
+  }
   function go(step) {
     if (step === current) return;
     current = step;
@@ -634,15 +802,14 @@ footer a{color:var(--ink-dim)}
     });
     tweenLen(sheetLen[step]);
     for (var d = 0; d < ticks.length; d++) ticks[d].className = d <= step ? "on" : "";
-    title.textContent = (step + 1) + "/6 · " + titles[step];
     for (var k = 0; k < steps.length; k++) steps[k].classList.toggle("on", k === step);
+    stageText();
   }
-  go(0);
+  onLang.push(stageText);
 
   var mobile = window.matchMedia("(max-width:900px)").matches;
   if (mobile) {
-    // Celular: la demostración avanza sola mientras está en pantalla; tocar
-    // un paso salta a él.
+    // Celular: la demostración avanza sola mientras está en pantalla; tocar un paso salta a él.
     var timer = null, visible = false, at = 0;
     var tick = function () { at = (at + 1) % 6; go(at); };
     var sync = function () {
@@ -658,45 +825,43 @@ footer a{color:var(--ink-dim)}
         .observe(document.querySelector(".stage"));
     }
   } else if ("IntersectionObserver" in window) {
-    // Escritorio: el paso que cruza el centro de la ventana manda.
     var io = new IntersectionObserver(function (entries) {
       entries.forEach(function (en) { if (en.isIntersecting) go(+en.target.getAttribute("data-step")); });
     }, { rootMargin: "-45% 0px -45% 0px" });
     steps.forEach(function (s) { io.observe(s); });
   }
 
-
   // ======================= SIMULADOR =======================
-  // Mismo enfoque que el script: cada diseño es una máscara de celdas;
+  // Misma idea que el script: cada diseño es una máscara de celdas;
   // "Rectángulos" usa la máscara llena y "Forma real" la silueta.
-  (function () {
-    var CELL = 2;                         // mm por celda
+  var Sim = (function () {
+    var CELL = 2; // mm por celda
     var DESIGNS = [
-      { name: "Flecha", w: 100, h: 250, d: function (w, h) { // "<" apuntando a la izquierda, girada 90°: larga
+      { w: 100, h: 250, d: function (w, h) {
           return "M0 " + (-h / 2) + " L" + (w / 2) + " " + (h / 2) + " L0 " + (h * .22) + " L" + (-w / 2) + " " + (h / 2) + " Z"; } },
-      { name: "Círculo", w: 90, h: 90, d: function (w) { var r = w / 2; return "M" + (-r) + " 0 A" + r + " " + r + " 0 1 0 " + r + " 0 A" + r + " " + r + " 0 1 0 " + (-r) + " 0 Z"; } },
-      { name: "Letra L", w: 120, h: 140, d: function (w, h) {
-          var x = w / 2, y = h / 2, t = w * .36;
-          return "M" + (-x) + " " + (-y) + " L" + (-x + t) + " " + (-y) + " L" + (-x + t) + " " + (y - t) + " L" + x + " " + (y - t) + " L" + x + " " + y + " L" + (-x) + " " + y + " Z"; } },
-      { name: "Estrella", w: 130, h: 130, d: function (w) {
+      { w: 90, h: 90, d: function (w) { var r = w / 2; return "M" + (-r) + " 0 A" + r + " " + r + " 0 1 0 " + r + " 0 A" + r + " " + r + " 0 1 0 " + (-r) + " 0 Z"; } },
+      { w: 120, h: 140, d: function (w, h) {
+          var x = w / 2, y = h / 2, tt = w * .36;
+          return "M" + (-x) + " " + (-y) + " L" + (-x + tt) + " " + (-y) + " L" + (-x + tt) + " " + (y - tt) + " L" + x + " " + (y - tt) + " L" + x + " " + y + " L" + (-x) + " " + y + " Z"; } },
+      { w: 130, h: 130, d: function (w) {
           var R = w / 2, r = R * .45, pts = [], i, a;
           for (i = 0; i < 10; i++) { a = -Math.PI / 2 + i * Math.PI / 5; pts.push((i % 2 ? r : R) * Math.cos(a) + " " + (i % 2 ? r : R) * Math.sin(a)); }
           return "M" + pts.join(" L") + " Z"; } }
     ];
-    var ICON = ["M2 17 L18 3 L13 10 L18 17 Z", "M10 2 A8 8 0 1 0 10.01 2 Z", "M3 2 L9 2 L9 11 L17 11 L17 17 L3 17 Z",
+    var ICON = ["M10 1 L17 18 L10 13 L3 18 Z", "M10 2 A8 8 0 1 0 10.01 2 Z", "M3 2 L9 2 L9 11 L17 11 L17 17 L3 17 Z",
                 "M10 1 L12.4 7.2 L19 7.6 L13.9 11.8 L15.6 18 L10 14.5 L4.4 18 L6.1 11.8 L1 7.6 L7.6 7.2 Z"];
 
-    // ---- máscaras ----
     var cv = document.createElement("canvas"), cx = cv.getContext("2d", { willReadFrequently: true });
     function maskOf(des) {
       var W = Math.ceil(des.w / CELL), H = Math.ceil(des.h / CELL), S = 3; // 3 px por celda
       cv.width = W * S; cv.height = H * S;
       cx.clearRect(0, 0, cv.width, cv.height);
-      cx.save(); cx.scale(S * 1 / CELL, S * 1 / CELL);
+      cx.save();
+      cx.scale(S / CELL, S / CELL);
       cx.translate(W * CELL / 2, H * CELL / 2);
-      cx.fillStyle = "#000"; cx.fill(new Path2D(des.d(des.w, des.h)));
+      cx.fill(new Path2D(des.d(des.w, des.h)));
       cx.restore();
-      var img = cx.getImageData(0, 0, cv.width, cv.height).data, m = new Uint8Array(W * H), x, y, sx, sy;
+      var img = cx.getImageData(0, 0, cv.width, cv.height).data, m = new Uint8Array(W * H), x, y;
       for (y = 0; y < cv.height; y++) for (x = 0; x < cv.width; x++) {
         if (img[(y * cv.width + x) * 4 + 3] > 8) m[((y / S) | 0) * W + ((x / S) | 0)] = 1;
       }
@@ -704,18 +869,15 @@ footer a{color:var(--ink-dim)}
     }
     function fullMask(W, H) { var m = new Uint8Array(W * H); m.fill(1); return { w: W, h: H, d: m }; }
     function rotate(m, k) { // k veces 90° antihorario
-      var r = m, t, x, y;
-      k = k % 4;
+      var r = m, tm, x, y;
       while (k > 0) {
-        t = { w: r.h, h: r.w, d: new Uint8Array(r.w * r.h) };
-        for (y = 0; y < r.h; y++) for (x = 0; x < r.w; x++) if (r.d[y * r.w + x]) t.d[(r.w - 1 - x) * t.w + y] = 1;
-        r = t; k -= 1;
+        tm = { w: r.h, h: r.w, d: new Uint8Array(r.w * r.h) };
+        for (y = 0; y < r.h; y++) for (x = 0; x < r.w; x++) if (r.d[y * r.w + x]) tm.d[(r.w - 1 - x) * tm.w + y] = 1;
+        r = tm; k -= 1;
       }
       return r;
     }
     function area(m) { var n = 0, i; for (i = 0; i < m.d.length; i++) n += m.d[i]; return n; }
-
-    // ---- tramos por fila ----
     function runsOf(m) {
       var rows = [], x, y, s, r;
       for (y = 0; y < m.h; y++) {
@@ -737,7 +899,7 @@ footer a{color:var(--ink-dim)}
       }
       return out;
     }
-    function dilate(rows, h, r) { // engorda r celdas en todas direcciones
+    function dilate(rows, h, r) {
       var out = [], j, dy, src, q, l, runs;
       for (j = -r; j < h + r; j++) {
         l = [];
@@ -756,17 +918,17 @@ footer a{color:var(--ink-dim)}
       for (k = 0; k < (rotate4 ? 4 : 1); k++) {
         m = rotate(mask, k);
         key = m.w + "x" + m.h + ":" + m.d.join("");
-        if (seen[key]) continue; seen[key] = true;
+        if (seen[key]) continue;
+        seen[key] = true;
         rows = runsOf(m); wide = 0; wrow = 0;
         for (i = 0; i < rows.length; i++) for (q = 0; q < rows[i].length; q += 2) {
-          len = rows[i][q + 1] - rows[i][q] + 1; if (len > wide) { wide = len; wrow = i; }
+          len = rows[i][q + 1] - rows[i][q] + 1;
+          if (len > wide) { wide = len; wrow = i; }
         }
         rots.push({ k: k, w: m.w, h: m.h, rows: rows, probe: dilate(rows, m.h, r), oy: -r, wide: wide, wrow: wrow });
       }
       return { rots: rots, area: area(mask), w: mask.w, h: mask.h };
     }
-
-    // ---- hoja ----
     function Grid(w, h) { this.w = w; this.h = h; this.rows = []; this.free = []; }
     Grid.prototype.hit = function (row, a, b) {
       var iv = this.rows[row], lo = 0, hi, mid;
@@ -782,8 +944,12 @@ footer a{color:var(--ink-dim)}
       if (f !== undefined) return f;
       iv = this.rows[row]; best = 0; pos = 0;
       if (!iv) best = this.w;
-      else { for (i = 0; i < iv.length; i += 2) { if (iv[i] - pos > best) best = iv[i] - pos; pos = iv[i + 1] + 1; } if (this.w - pos > best) best = this.w - pos; }
-      this.free[row] = best; return best;
+      else {
+        for (i = 0; i < iv.length; i += 2) { if (iv[i] - pos > best) best = iv[i] - pos; pos = iv[i + 1] + 1; }
+        if (this.w - pos > best) best = this.w - pos;
+      }
+      this.free[row] = best;
+      return best;
     };
     function fits(g, rot, x, y) {
       var r, gy, runs, q, a, e;
@@ -805,35 +971,31 @@ footer a{color:var(--ink-dim)}
       }
       return null;
     }
-    function pack(items, gridW, order) {
-      var list = items.slice(0), g = new Grid(gridW, 9000), placed = [], used = 0, starts = {}, i, r, best, pos, bottom, key, rot;
-      list.sort(order === 0 ? function (a, b) { return b.shape.area - a.shape.area || a.id - b.id; }
-                            : function (a, b) { return Math.max(b.shape.w, b.shape.h) - Math.max(a.shape.w, a.shape.h) || a.id - b.id; });
-      for (i = 0; i < list.length; i++) {
+    function pack(shape, n, gridW, order) {
+      var g = new Grid(gridW, 12000), placed = [], used = 0, starts = {}, i, r, best, pos, bottom, rot, j, q;
+      var rots = shape.rots.slice(0);
+      if (order === 1) rots.reverse(); // segundo intento: otro orden de giros
+      for (i = 0; i < n; i++) {
         best = null;
-        for (r = 0; r < list[i].shape.rots.length; r++) {
-          rot = list[i].shape.rots[r];
-          key = list[i].shape.key + "/" + rot.k;
-          pos = findPos(g, rot, starts[key] || 0, best ? best.bottom : null);
-          if (pos) { bottom = pos.y + rot.h; if (!best || bottom < best.bottom) best = { rot: rot, x: pos.x, y: pos.y, bottom: bottom, key: key }; }
+        for (r = 0; r < rots.length; r++) {
+          rot = rots[r];
+          pos = findPos(g, rot, starts[rot.k] || 0, best ? best.bottom : null);
+          if (pos) { bottom = pos.y + rot.h; if (!best || bottom < best.bottom) best = { rot: rot, x: pos.x, y: pos.y, bottom: bottom }; }
         }
         if (!best) return null;
-        starts[best.key] = best.y;
-        (function (rows, rot, x, y) {
-          var j, q;
-          for (j = 0; j < rows.length; j++) for (q = 0; q < rows[j].length; q += 2) g.add(y + j, x + rows[j][q], x + rows[j][q + 1]);
-        })(best.rot.rows, best.rot, best.x, best.y);
-        placed.push({ id: list[i].id, x: best.x, y: best.y, k: best.rot.k, w: best.rot.w, h: best.rot.h });
+        starts[best.rot.k] = best.y;
+        for (j = 0; j < best.rot.rows.length; j++) for (q = 0; q < best.rot.rows[j].length; q += 2) {
+          g.add(best.y + j, best.x + best.rot.rows[j][q], best.x + best.rot.rows[j][q + 1]);
+        }
+        placed.push({ x: best.x, y: best.y, k: best.rot.k, w: best.rot.w, h: best.rot.h });
         if (best.bottom > used) used = best.bottom;
       }
       return { placed: placed, used: used };
     }
     function solve(mask, n, gridW, r, rot) {
-      var shape = prepare(mask, r, rot), items = [], i, a, b;
-      shape.key = "s";
-      for (i = 0; i < n; i++) items.push({ id: i, shape: shape });
-      a = pack(items, gridW, 0); b = pack(items, gridW, 1);
-      if (!a) return b; if (!b) return a;
+      var shape = prepare(mask, r, rot), a = pack(shape, n, gridW, 0), b = shape.rots.length > 1 ? pack(shape, n, gridW, 1) : null;
+      if (!a) return b;
+      if (!b) return a;
       return b.used < a.used ? b : a;
     }
 
@@ -844,61 +1006,100 @@ footer a{color:var(--ink-dim)}
     DESIGNS.forEach(function (d, i) {
       chips.insertAdjacentHTML("beforeend",
         '<input type="radio" name="d" id="d' + i + '" value="' + i + '"' + (i === 0 ? " checked" : "") + '>' +
-        '<label for="d' + i + '"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="' + ICON[i] + '" fill="currentColor"/></svg>' + d.name + '</label>');
+        '<label for="d' + i + '"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="' + ICON[i] + '" fill="currentColor"/></svg><span class="dn"></span></label>');
       masks.push(null);
     });
+    function names() { chips.querySelectorAll(".dn").forEach(function (s, i) { s.textContent = t("designs")[i]; }); }
     function maskFor(i) { if (!masks[i]) masks[i] = maskOf(DESIGNS[i]); return masks[i]; }
 
-    var svg = $("sim-sheet"), NSV = "http://www.w3.org/2000/svg";
+    // Deslizador y campo numérico sincronizados.
+    function pair(rangeId, numId, after) {
+      var rg = $(rangeId), nb = $(numId);
+      rg.addEventListener("input", function () { nb.value = rg.value; after(); schedule(); });
+      nb.addEventListener("input", function () {
+        var v = +nb.value;
+        if (isNaN(v) || nb.value === "") return;
+        v = Math.max(+rg.min, Math.min(+rg.max, Math.round(v)));
+        rg.value = v; after(); schedule();
+      });
+      nb.addEventListener("change", function () { nb.value = rg.value; });
+    }
+    function syncPreset() {
+      var w = $("sim-w").value;
+      document.querySelectorAll("#sim-presets input").forEach(function (p) { p.checked = p.value === w; });
+    }
+    pair("sim-n", "sim-n-v", function () { });
+    pair("sim-w", "sim-w-v", syncPreset);
+    pair("sim-g", "sim-g-v", function () { });
+    $("sim-presets").addEventListener("change", function (e) {
+      $("sim-w").value = e.target.value; $("sim-w-v").value = e.target.value; schedule();
+    });
+    ["sim-rot", "sim-halo"].forEach(function (id) { $(id).addEventListener("change", schedule); });
+    chips.addEventListener("change", function (e) { design = +e.target.value; schedule(); });
+
+    var svg = $("sim-sheet");
+    function fmt(mm) { return (mm / 10).toFixed(1); }
+
     function run() {
       var d = DESIGNS[design], n = +$("sim-n").value, wcm = +$("sim-w").value, gmm = +$("sim-g").value;
-      var rot = $("sim-rot").checked, wantShape = $("m-shape").checked, halo = $("sim-halo").checked;
-      $("o-n").textContent = n; $("o-w").textContent = wcm + " cm"; $("o-g").textContent = gmm + " mm";
-      var margin = gmm, gridW = Math.floor((wcm * 10 - 2 * margin) / CELL), r = Math.max(1, Math.ceil(gmm / CELL));
-      var sm = maskFor(design), fm = fullMask(sm.w, sm.h), warn = $("sim-warn");
+      var rot = $("sim-rot").checked, halo = $("sim-halo").checked, warn = $("sim-warn");
+      var margin = gmm, widMm = wcm * 10, gridW = Math.floor((widMm - 2 * margin) / CELL), r = Math.max(1, Math.ceil(gmm / CELL));
+      var sm = maskFor(design), fm = fullMask(sm.w, sm.h);
       warn.textContent = "";
-      // ¿cabe una pieza?
-      var fitsOne = (sm.w <= gridW && sm.h <= gridW * 1000) || (rot && sm.h <= gridW);
       if (sm.w > gridW && !(rot && sm.h <= gridW)) {
-        warn.textContent = "El diseño no cabe en ese ancho de rollo. Aumenta el ancho o permite los giros.";
-        svg.innerHTML = ""; ["r-len", "r-use", "r-save"].forEach(function (k) { $(k).textContent = "—"; });
+        warn.textContent = t("noFit");
+        svg.innerHTML = "";
+        ["r-rect", "r-shape", "r-save"].forEach(function (k) { $(k).textContent = "—"; });
         return;
       }
-      var res = solve(wantShape ? sm : fm, n, gridW, r, rot);
-      var base = wantShape ? solve(fm, n, gridW, r, rot) : res;
-      if (!res || !base) { warn.textContent = "No se pudo acomodar con esos valores."; return; }
-      var lenMm = res.used * CELL + 2 * margin, widMm = wcm * 10;
-      var cells = n * area(sm);
-      $("r-len").innerHTML = (lenMm / 10).toFixed(1) + "<small>cm</small>";
-      $("r-use").innerHTML = (cells * CELL * CELL / (lenMm * widMm) * 100).toFixed(0) + "<small>%</small>";
-      var saved = base.used ? (1 - res.used / base.used) * 100 : 0;
-      var rs = $("r-save");
-      rs.className = saved > 0.5 ? "good" : "";
-      rs.innerHTML = wantShape ? (saved > 0.5 ? "−" + saved.toFixed(0) + "<small>% de película</small>" : "0<small>% (sin ahorro)</small>") : "base";
+      var rs = solve(fm, n, gridW, r, rot), ss = solve(sm, n, gridW, r, rot);
+      var lenR = rs.used * CELL + 2 * margin, lenS = ss.used * CELL + 2 * margin;
+      var useR = n * area(sm) * CELL * CELL / (lenR * widMm) * 100, useS = n * area(sm) * CELL * CELL / (lenS * widMm) * 100;
+      $("r-rect").innerHTML = fmt(lenR) + "<small>cm · " + useR.toFixed(0) + "%</small>";
+      $("r-shape").innerHTML = fmt(lenS) + "<small>cm · " + useS.toFixed(0) + "%</small>";
+      var saved = (1 - lenS / lenR) * 100, sv = $("r-save");
+      sv.className = saved > 0.5 ? "good" : "";
+      sv.innerHTML = saved > 0.5 ? "−" + saved.toFixed(0) + "<small>% " + t("film") + "</small>" : "0<small>% · " + t("none") + "</small>";
 
-      // dibujo (mm)
-      var h = lenMm, out = '<svg xmlns="' + NSV + '" viewBox="0 0 ' + widMm + " " + h + '"></svg>';
-      var parts = ['<rect class="sh" x="0" y="0" width="' + widMm + '" height="' + h + '"/>'];
-      res.placed.forEach(function (p, i) {
-        var bw = p.w * CELL, bh = p.h * CELL;
-        var cxm = margin + p.x * CELL + bw / 2, cym = margin + p.y * CELL + bh / 2;
-        var path = d.d(d.w, d.h);
-        // la máscara mide ceil(w/CELL)*CELL; centrada igual que el dibujo
-        parts.push('<g class="pc" style="animation-delay:' + Math.min(i * 28, 700) + 'ms" transform="translate(' + cxm + " " + cym + ") rotate(" + (-90 * p.k) + ')">' +
-          (halo ? '<path class="halo" d="' + path + '" stroke-width="' + (gmm) + '"/>' : "") +
-          '<path class="f' + design + '" d="' + path + '"/></g>');
-      });
-      svg.setAttribute("viewBox", "0 0 " + widMm + " " + h);
+      // ---- dibujo: dos hojas a la misma escala, con regla en cm ----
+      var maxLen = Math.max(lenR, lenS);
+      var RUL = widMm * .16, GAPS = widMm * .22, HEAD = widMm * .2, FS = widMm * .055;
+      var vbW = RUL + widMm + GAPS + widMm, vbH = HEAD + maxLen + FS * 1.2;
+      var parts = [];
+      // regla (marcas cada 10 cm, números cada 50 cm o cada 10 si es corta)
+      var every = maxLen > 1500 ? 500 : maxLen > 600 ? 200 : 100;
+      for (var mm = 0; mm <= maxLen + 0.1; mm += 100) {
+        var y = HEAD + mm, big = mm % every === 0;
+        parts.push('<line class="tick" x1="' + (RUL * (big ? .45 : .7)) + '" y1="' + y + '" x2="' + RUL * .92 + '" y2="' + y + '"/>');
+        if (big) parts.push('<text class="tl" x="' + RUL * .4 + '" y="' + (y + FS * .35) + '" font-size="' + FS * .8 + '" text-anchor="end">' + mm / 10 + '</text>');
+      }
+      function sheetSvg(res, len, x0, label, best) {
+        var out = ['<text class="ttl" x="' + x0 + '" y="' + HEAD * .42 + '" font-size="' + FS + '">' + label + '</text>',
+          '<text class="len' + (best ? "" : " dim") + '" x="' + x0 + '" y="' + HEAD * .78 + '" font-size="' + FS * .85 + '">' + fmt(len) + ' cm × ' + wcm + ' cm</text>',
+          '<rect class="sh' + (best ? " best" : "") + '" x="' + x0 + '" y="' + HEAD + '" width="' + widMm + '" height="' + len + '"/>'];
+        var path = d.d(d.w, d.h), cls = "f" + design;
+        res.placed.forEach(function (p, i) {
+          var cxm = x0 + margin + p.x * CELL + p.w * CELL / 2, cym = HEAD + margin + p.y * CELL + p.h * CELL / 2;
+          // La posición va en el grupo exterior; la animación, en el interior.
+          out.push('<g transform="translate(' + cxm + " " + cym + ") rotate(" + (-90 * p.k) + ')"><g class="pc" style="animation-delay:' + Math.min(i * 22, 600) + 'ms">' +
+            (halo ? '<path class="halo" d="' + path + '" stroke-width="' + gmm + '"/>' : "") +
+            '<path class="' + cls + '" d="' + path + '"/></g></g>');
+        });
+        return out.join("");
+      }
+      parts.push(sheetSvg(rs, lenR, RUL, t("rect"), lenR <= lenS));
+      parts.push(sheetSvg(ss, lenS, RUL + widMm + GAPS, t("shape"), lenS < lenR));
+      svg.setAttribute("viewBox", "0 0 " + vbW + " " + vbH);
       svg.innerHTML = parts.join("");
     }
-    function schedule() { clearTimeout(timer); timer = setTimeout(run, 120); }
-    ["sim-n", "sim-w", "sim-g", "sim-rot", "sim-halo"].forEach(function (id) { $(id).addEventListener("input", schedule); $(id).addEventListener("change", schedule); });
-    document.querySelectorAll("#sim-method input").forEach(function (e) { e.addEventListener("change", schedule); });
-    chips.addEventListener("change", function (e) { design = +e.target.value; schedule(); });
+    function schedule() { clearTimeout(timer); timer = setTimeout(run, 110); }
+    names();
     run();
+    return { relabel: function () { names(); run(); } };
   })();
+  onLang.push(Sim.relabel);
 
-  // ---------- pestañas (con flechas del teclado) ----------
+  // ======================= PESTAÑAS =======================
   var tabs = Array.prototype.slice.call(document.querySelectorAll(".tabs button"));
   function select(b) {
     tabs.forEach(function (x) {
@@ -913,10 +1114,13 @@ footer a{color:var(--ink-dim)}
     b.addEventListener("keydown", function (e) {
       var j = e.key === "ArrowRight" ? i + 1 : e.key === "ArrowLeft" ? i - 1 : null;
       if (j === null) return;
-      var t = tabs[(j + tabs.length) % tabs.length];
-      select(t); t.focus(); e.preventDefault();
+      var nt = tabs[(j + tabs.length) % tabs.length];
+      select(nt); nt.focus(); e.preventDefault();
     });
   });
+
+  go(0);
+  if (lang !== "es") applyLang(lang); else stageText();
 })();
 </script>
 </body>
