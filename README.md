@@ -2,7 +2,7 @@
 
 # AutoSort Gangsheet DTF
 
-**Script gratuito para Adobe Illustrator que arma gangsheets DTF sin desperdiciar película.**
+**Script gratuito y de código abierto para Adobe Illustrator que arma gangsheets DTF sin desperdiciar película.**
 
 Acomoda tus diseños con el menor largo posible, deja la separación justa para recortar,
 etiqueta las tallas y exporta el PNG listo para el RIP.
@@ -30,6 +30,7 @@ etiqueta las tallas y exporta el PNG listo para el RIP.
 - [Límites y notas](#límites-y-notas)
 - [Preguntas frecuentes](#preguntas-frecuentes)
 - [Desarrollo](#desarrollo)
+- [Licencia](#licencia)
 
 ## Por qué AutoSort
 
@@ -142,6 +143,13 @@ En pruebas con una silueta de flecha de 10 × 25 cm, 20 copias en un rollo de 58
 ## Preguntas frecuentes
 
 <details>
+<summary><b>¿Por qué es para Illustrator y no para Photoshop?</b></summary>
+
+Porque en el departamento donde trabajo se trabaja sobre todo con vectores: logos, textos y arte que deben verse nítidos a cualquier tamaño y cortarse limpio. Illustrator es donde ya viven esos archivos, así que hice AutoSort ahí para mejorar la calidad de mi trabajo, sin convertir ni aplanar nada en el camino.
+
+</details>
+
+<details>
 <summary><b>Dice «sin silueta legible»</b></summary>
 
 El script no pudo capturar la silueta de ese diseño y usó su rectángulo. El resultado sigue siendo correcto, solo sin el ahorro de forma real para ese diseño.
@@ -179,3 +187,7 @@ npm test
 | `docs-sync` | La copia descargable del sitio coincide con el script. |
 
 La web (`docs/`) se publica con GitHub Pages. Tras cambiar el script, copia el archivo con `npm run sync-docs`.
+
+## Licencia
+
+AutoSort es software libre bajo la [licencia MIT](LICENSE): puedes usarlo, leerlo, modificarlo y compartirlo, incluso en trabajo comercial. Es de código abierto para que cualquiera pueda ver exactamente qué hace con sus archivos, proponer mejoras y adaptarlo a su taller.
