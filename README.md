@@ -7,13 +7,14 @@
 Acomoda tus diseños con el menor largo posible, deja la separación justa para recortar,
 etiqueta las tallas y exporta el PNG listo para el RIP.
 
-[**Descargar**](https://eguiajosue.github.io/auto-sort/download/AutoSort-Gangsheet.jsx) ·
+[**Descargar la última versión**](https://github.com/eguiajosue/auto-sort/releases/latest) ·
 [**Sitio web y guía**](https://eguiajosue.github.io/auto-sort/) ·
 [Reportar un problema](https://github.com/eguiajosue/auto-sort/issues)
 
 ![Illustrator](https://img.shields.io/badge/Adobe%20Illustrator-CC%202018%2B-FF9A00?logo=adobeillustrator&logoColor=white)
 ![Plataformas](https://img.shields.io/badge/Windows%20%7C%20macOS-supported-444)
 ![Formato](https://img.shields.io/badge/formato-.jsx%20(ExtendScript)-blue)
+[![Release](https://img.shields.io/github/v/release/eguiajosue/auto-sort?label=versi%C3%B3n)](https://github.com/eguiajosue/auto-sort/releases/latest)
 
 </div>
 
@@ -55,7 +56,7 @@ Armar un gangsheet a mano es lento y desperdicia película. AutoSort hace tres c
 
 ## Instalación
 
-1. [Descarga `AutoSort-Gangsheet.jsx`](https://eguiajosue.github.io/auto-sort/download/AutoSort-Gangsheet.jsx) (o cópialo de este repositorio).
+1. Descarga `AutoSort-Gangsheet.jsx` desde la [**última versión (Releases)**](https://github.com/eguiajosue/auto-sort/releases/latest). Ahí también está el zip con el README y la licencia, y las versiones anteriores. (También puedes bajarlo desde [la web](https://eguiajosue.github.io/auto-sort/download/AutoSort-Gangsheet.jsx).)
 2. **Cierra Illustrator** y copia el archivo a la carpeta de scripts:
    - **Windows:** `C:\Program Files\Adobe\Adobe Illustrator <versión>\Presets\<idioma>\Scripts\`
    - **macOS:** `/Applications/Adobe Illustrator <versión>/Presets.localized/<idioma>/Scripts/`
@@ -187,6 +188,10 @@ npm test
 | `docs-sync` | La copia descargable del sitio coincide con el script. |
 
 La web (`docs/`) se publica con GitHub Pages. Tras cambiar el script, copia el archivo con `npm run sync-docs`.
+
+### Publicar una versión
+
+En **Actions → Release → Run workflow**, escribe la versión (por ejemplo `v1.1.0`); también se dispara al publicar una etiqueta `vX.Y.Z`. El flujo corre las pruebas y crea el release con `AutoSort-Gangsheet.jsx` y un zip (script + README + licencia). La descripción sale de `.github/release-notes.md`.
 
 ## Licencia
 
