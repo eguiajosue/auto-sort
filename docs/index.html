@@ -4,222 +4,605 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>AutoSort Gangsheet DTF — script para Adobe Illustrator</title>
-<meta name="description" content="Script gratuito para Adobe Illustrator que acomoda diseños en gangsheets DTF: aprovecha el espacio, respeta la separación de corte, etiqueta tallas y exporta PNG.">
+<meta name="description" content="Script gratuito para Adobe Illustrator que acomoda diseños en gangsheets DTF: encaja siluetas, respeta la separación de corte, etiqueta tallas y exporta PNG.">
+<meta name="theme-color" content="#10201a">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#ffffff;--bg2:#f5f6f8;--fg:#14171c;--muted:#5b6472;--line:#e3e6ea;
-  --brand:#e8590c;--brand-d:#c2410c;--brand-fg:#fff;--code:#f0f2f5;--ok:#0b7a43;
-}
-@media (prefers-color-scheme:dark){
-  :root{--bg:#0f1216;--bg2:#171b21;--fg:#eef0f3;--muted:#9aa3b0;--line:#272c34;
-    --brand:#ff7a2f;--brand-d:#ff9a5c;--brand-fg:#111;--code:#1d222a;--ok:#4cc38a}
+  --mat:#10201a;          /* tapete de corte */
+  --mat-2:#152a22;
+  --mat-3:#1c352b;
+  --grid:rgba(234,226,208,.05);
+  --grid-strong:rgba(234,226,208,.11);
+  --ink:#efe8d8;          /* papel crema */
+  --ink-dim:#b4bdb1;
+  --ink-faint:#8d9a8f;    /* ≥4.5:1 sobre el tapete */
+  --cut:#ff5b1f;          /* línea de corte */
+  --cut-d:#ff7a45;
+  --reg:#f2c14e;          /* registro */
+  --cyan:#3fc1c9;
+  --mag:#e2508f;
+  --display:"Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  --out:cubic-bezier(.16,1,.3,1);
+  color-scheme:dark;
 }
 *{box-sizing:border-box}
-html{scroll-behavior:smooth}
-body{margin:0;font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--fg)}
-a{color:var(--brand-d)}
-.wrap{max-width:1040px;margin:0 auto;padding:0 20px}
-header.nav{position:sticky;top:0;z-index:10;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
-.nav .wrap{display:flex;align-items:center;gap:20px;height:58px}
-.logo{font-weight:800;letter-spacing:-.02em;color:var(--fg);text-decoration:none}
-.logo span{color:var(--brand)}
-.nav nav{margin-left:auto;display:flex;gap:18px;font-size:14px}
-.nav nav a{color:var(--muted);text-decoration:none}
-.nav nav a:hover{color:var(--fg)}
-.btn{display:inline-block;background:var(--brand);color:var(--brand-fg);font-weight:700;padding:12px 22px;border-radius:10px;text-decoration:none;border:0}
-.btn:hover{background:var(--brand-d);color:var(--brand-fg)}
-.btn.ghost{background:transparent;color:var(--fg);border:1px solid var(--line)}
-.btn.ghost:hover{background:var(--bg2);color:var(--fg)}
-.hero{padding:72px 0 56px}
-.hero h1{font-size:clamp(2rem,5vw,3.4rem);line-height:1.1;letter-spacing:-.03em;margin:0 0 16px}
-.hero h1 em{font-style:normal;color:var(--brand)}
-.hero p.lead{font-size:1.15rem;color:var(--muted);max-width:640px;margin:0 0 28px}
-.cta{display:flex;flex-wrap:wrap;gap:12px}
-.badges{margin-top:22px;display:flex;flex-wrap:wrap;gap:8px;font-size:13px;color:var(--muted)}
-.badges span{border:1px solid var(--line);border-radius:999px;padding:3px 12px;background:var(--bg2)}
-section{padding:56px 0;border-top:1px solid var(--line)}
-section h2{font-size:1.7rem;letter-spacing:-.02em;margin:0 0 8px}
-section>.wrap>p.sub{color:var(--muted);margin:0 0 32px;max-width:680px}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
-.card{background:var(--bg2);border:1px solid var(--line);border-radius:14px;padding:20px}
-.card h3{margin:0 0 6px;font-size:1.05rem}
-.card p{margin:0;color:var(--muted);font-size:.95rem}
-.steps{counter-reset:s;list-style:none;padding:0;margin:0;display:grid;gap:14px}
-.steps li{counter-increment:s;position:relative;padding:16px 18px 16px 62px;background:var(--bg2);border:1px solid var(--line);border-radius:14px}
-.steps li::before{content:counter(s);position:absolute;left:18px;top:14px;width:30px;height:30px;border-radius:50%;background:var(--brand);color:var(--brand-fg);font-weight:800;display:grid;place-items:center}
-.steps li b{display:block}
-.compare{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px}
-.compare figure{margin:0;background:var(--bg2);border:1px solid var(--line);border-radius:14px;padding:16px}
-.compare figcaption{margin-top:10px;font-size:.92rem;color:var(--muted)}
-.compare svg{width:100%;height:auto;display:block;border-radius:8px;background:var(--bg)}
-table{width:100%;border-collapse:collapse;font-size:.95rem}
-th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
-th{color:var(--muted);font-weight:600;font-size:.85rem;text-transform:uppercase;letter-spacing:.04em}
-code,kbd{background:var(--code);padding:2px 6px;border-radius:6px;font-size:.9em}
-pre{background:var(--code);padding:14px 16px;border-radius:10px;overflow:auto;font-size:.9rem}
-details{background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:4px 18px;margin-bottom:10px}
-summary{cursor:pointer;font-weight:600;padding:12px 0}
-details p{margin:0 0 14px;color:var(--muted)}
-.note{border-left:4px solid var(--brand);background:var(--bg2);padding:12px 16px;border-radius:0 10px 10px 0;color:var(--muted);font-size:.95rem;margin-top:18px}
-.dl{display:flex;flex-wrap:wrap;align-items:center;gap:18px;background:var(--bg2);border:1px solid var(--line);border-radius:16px;padding:26px}
-.dl p{margin:0;color:var(--muted)}
-footer{border-top:1px solid var(--line);padding:28px 0;color:var(--muted);font-size:.9rem}
-@media (max-width:640px){.nav nav{display:none}.hero{padding-top:44px}}
+html{scroll-behavior:smooth;scrollbar-color:var(--mat-3) var(--mat)}
+::-webkit-scrollbar{width:10px}
+::-webkit-scrollbar-track{background:var(--mat)}
+::-webkit-scrollbar-thumb{background:var(--mat-3);border:2px solid var(--mat)}
+::selection{background:var(--cut);color:#160b05}
+body{
+  margin:0;background-color:var(--mat);color:var(--ink);
+  font:17px/1.6 var(--display);
+  /* el tapete: cuadrícula fina y líneas mayores cada 5 cuadros */
+  background-image:
+    linear-gradient(var(--grid) 1px,transparent 1px),
+    linear-gradient(90deg,var(--grid) 1px,transparent 1px),
+    linear-gradient(var(--grid-strong) 1px,transparent 1px),
+    linear-gradient(90deg,var(--grid-strong) 1px,transparent 1px);
+  background-size:24px 24px,24px 24px,120px 120px,120px 120px;
+  background-position:-1px -1px;
+}
+a{color:var(--reg);text-underline-offset:3px;text-decoration-thickness:1px}
+a:focus-visible,button:focus-visible,summary:focus-visible,.step:focus-visible{outline:2px dashed var(--cut);outline-offset:4px}
+.wrap{max-width:1180px;margin:0 auto;padding:0 24px}
+
+/* ---------- barra ---------- */
+.bar{position:sticky;top:0;z-index:20;background:var(--mat);border-bottom:1px dashed var(--grid-strong)}
+.bar .wrap{display:flex;align-items:center;gap:28px;height:62px}
+.brand{display:flex;align-items:center;gap:10px;color:var(--ink);text-decoration:none;font-weight:800;letter-spacing:-.02em;font-size:18px}
+.brand svg{width:24px;height:24px}
+.bar nav{margin-left:auto;display:flex;gap:26px}
+.bar nav a{color:var(--ink-dim);text-decoration:none;font-size:15px}
+.bar nav a:hover{color:var(--ink)}
+.btn{
+  display:inline-flex;align-items:center;gap:10px;
+  background:var(--cut);color:#160b05;font-weight:800;text-decoration:none;font-size:16px;
+  padding:14px 22px;border-radius:3px;
+  box-shadow:0 10px 24px -12px rgba(255,91,31,.55);
+  transition:background .15s var(--out),transform .15s var(--out);
+}
+.btn:hover{background:var(--cut-d)}
+.btn:active{transform:translateY(1px)}
+.btn svg{flex:none}
+.btn.quiet{background:none;color:var(--ink);box-shadow:none;padding:14px 4px;text-decoration:underline;text-decoration-style:dashed;text-decoration-color:var(--ink-faint)}
+.btn.quiet:hover{text-decoration-color:var(--ink)}
+.bar .btn{padding:9px 16px;font-size:14px}
+
+/* ---------- historia (la portada es su primer paso) ---------- */
+.story .wrap{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);gap:64px}
+.step{min-height:78vh;display:flex;flex-direction:column;justify-content:center;opacity:.42;transition:opacity .4s var(--out)}
+.step.on,.step.hero{opacity:1}
+.step.hero{min-height:calc(100vh - 62px);padding-bottom:6vh}
+.steps-rest .step:last-child{min-height:90vh}
+h1{font-size:clamp(2.8rem,6.2vw,5.6rem);line-height:.94;letter-spacing:-.04em;margin:0 0 28px;font-weight:800;text-wrap:balance}
+h1 em{font-style:normal;color:var(--cut)}
+.lead{font-size:1.22rem;color:var(--ink-dim);max-width:34ch;margin:0 0 34px}
+.cta{display:flex;flex-wrap:wrap;gap:20px;align-items:center}
+.compat{margin-top:30px;color:var(--ink-faint);font-size:14px;max-width:46ch}
+.step .n{font-family:var(--mono);font-size:13px;color:var(--reg);margin-bottom:14px;font-variant-numeric:tabular-nums}
+.step h3{font-size:clamp(1.7rem,2.9vw,2.5rem);line-height:1.04;letter-spacing:-.03em;margin:0 0 16px;text-wrap:balance}
+.step p{color:var(--ink-dim);margin:0 0 12px;max-width:42ch}
+.step .fact{font-family:var(--mono);font-size:13px;color:var(--ink);margin-top:14px;padding-top:12px;border-top:1px dashed var(--grid-strong);max-width:42ch}
+.stage-col{position:relative}
+.stage{
+  position:sticky;top:86px;height:calc(100vh - 116px);max-height:780px;
+  background:var(--mat-2);border:1px solid var(--grid-strong);
+  display:flex;flex-direction:column;
+}
+.stage-head,.stage-foot{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;font-family:var(--mono);font-size:12px;color:var(--ink-faint)}
+.stage-head{border-bottom:1px dashed var(--grid-strong)}
+.stage-foot{border-top:1px dashed var(--grid-strong);color:var(--ink-dim)}
+.stage-foot b{color:var(--reg);font-weight:500;font-variant-numeric:tabular-nums}
+.ticks{display:flex;gap:4px}
+.ticks i{width:18px;height:3px;background:var(--mat-3);transition:background .3s var(--out)}
+.ticks i.on{background:var(--cut)}
+.stage svg{flex:1;width:100%;min-height:0}
+
+/* escenario */
+#stage .sheet{fill:rgba(239,232,216,.035);stroke:var(--ink);stroke-width:1;stroke-dasharray:4 4;transition:opacity .5s var(--out),stroke .5s,fill .5s}
+#stage .piece{transition:transform 1s var(--out)}
+#stage .chev .shape{fill:var(--cut)}
+#stage .circ .shape{fill:var(--cyan)}
+#stage .blob .shape{fill:var(--mag)}
+#stage .bbox{fill:none;stroke:var(--reg);stroke-width:1;stroke-dasharray:3 3;opacity:0;transition:opacity .4s var(--out)}
+#stage .halo{fill:none;stroke:var(--ink);stroke-opacity:.16;stroke-width:8;stroke-linejoin:round;opacity:0;transition:opacity .5s var(--out)}
+#stage .cells{opacity:0;transition:opacity .5s var(--out)}
+/* línea de corte: se traza alrededor de cada silueta al final */
+#stage .cutline{fill:none;stroke:var(--reg);stroke-width:1.2;stroke-linejoin:round;stroke-dasharray:400;stroke-dashoffset:400;opacity:0;vector-effect:non-scaling-stroke}
+#stage .tag{font-family:var(--mono);font-size:10px;font-weight:500;fill:#111;opacity:0;transition:opacity .3s var(--out)}
+#stage .tagbg{fill:var(--ink);opacity:0;transition:opacity .3s var(--out)}
+#stage[data-step="1"] .bbox,#stage[data-step="2"] .bbox{opacity:.9}
+#stage[data-step="3"] .halo,#stage[data-step="3"] .cells{opacity:1}
+#stage[data-step="4"] .tag,#stage[data-step="4"] .tagbg,#stage[data-step="5"] .tag,#stage[data-step="5"] .tagbg{opacity:1}
+#stage[data-step="5"] .cutline{opacity:1;stroke-dashoffset:0;transition:stroke-dashoffset 1.4s var(--out) .2s,opacity .2s}
+#stage[data-step="5"] .sheet{stroke:var(--reg);stroke-dasharray:none;fill:rgba(242,193,78,.05)}
+#stage .ruler{stroke:var(--reg);stroke-width:1.5}
+#stage .rtext{font-family:var(--mono);font-size:11px;fill:var(--reg)}
+#stage .cap{font-family:var(--mono);font-size:10px;fill:var(--ink-faint);letter-spacing:.06em;opacity:0;transition:opacity .4s}
+#stage:not([data-step="0"]):not([data-step="1"]) .cap{opacity:1}
+#stage .save{font-weight:800;font-size:22px;fill:var(--reg);opacity:0;transition:opacity .4s var(--out) .7s}
+#stage[data-step="3"] .save{opacity:1}
+#stage .export{opacity:0;transition:opacity .4s var(--out) 1.2s}
+#stage[data-step="5"] .export{opacity:1}
+#stage .export rect{fill:var(--cut)}
+#stage .export text{font-family:var(--mono);font-size:12px;font-weight:500;fill:#160b05}
+#stage .scan{opacity:0}
+#stage[data-step="1"] .scan{animation:scan 1.4s var(--out) .15s 1 both}
+@keyframes scan{0%{opacity:0;transform:translateY(0)}15%{opacity:.7}85%{opacity:.7}100%{opacity:0;transform:translateY(440px)}}
+
+/* ---------- secciones ---------- */
+section.block{padding:120px 0 40px}
+h2{font-size:clamp(2.1rem,4.4vw,3.6rem);line-height:1;letter-spacing:-.035em;margin:0 0 20px;font-weight:800;text-wrap:balance}
+.sub{color:var(--ink-dim);max-width:52ch;margin:0 0 56px;font-size:1.1rem}
+
+/* ficha de trabajo: las funciones como una orden de producción */
+.order{display:grid;grid-template-columns:1fr 1fr;gap:0 64px;margin:0;border-top:1px solid var(--grid-strong)}
+.line{padding:22px 0;border-bottom:1px dashed var(--grid-strong)}
+.line dt{display:flex;align-items:baseline;gap:12px;font-weight:600;font-size:1.1rem}
+.line dt::after{content:"";flex:1;border-bottom:1px dotted var(--ink-faint);transform:translateY(-4px);order:1}
+.line dt span{order:2;font-family:var(--mono);font-size:13px;font-weight:400;color:var(--reg);white-space:nowrap;font-variant-numeric:tabular-nums}
+.line dd{margin:6px 0 0;color:var(--ink-dim);font-size:.97rem;max-width:46ch}
+
+/* instalación */
+.install{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:64px;align-items:start}
+.file{display:flex;align-items:center;gap:16px;margin-bottom:26px}
+.file svg{width:48px;height:56px;flex:none}
+.file b{display:block;font-size:1.15rem}
+.file span{color:var(--ink-faint);font-size:14px}
+.hint{display:block;margin-top:18px;color:var(--ink-faint);font-size:.92rem}
+ol.path{list-style:none;margin:0;padding:0;counter-reset:p}
+ol.path li{counter-increment:p;position:relative;padding:0 0 30px 56px}
+ol.path li::before{content:counter(p);position:absolute;left:0;top:0;width:32px;height:32px;display:grid;place-items:center;font-family:var(--mono);font-size:14px;color:var(--mat);background:var(--reg);border-radius:50%}
+ol.path li::after{content:"";position:absolute;left:16px;top:38px;bottom:6px;border-left:1px dashed var(--ink-faint)}
+ol.path li:last-child::after{display:none}
+ol.path b{display:block;margin-bottom:4px;font-size:1.08rem}
+ol.path p{margin:0;color:var(--ink-dim)}
+code{font-family:var(--mono);font-size:.84em;background:rgba(0,0,0,.28);padding:2px 6px;border:1px solid var(--grid-strong);border-radius:3px;word-break:break-all}
+.note{margin-top:8px;color:var(--ink-dim);font-size:.96rem;padding:14px 0 0 56px}
+.note b{color:var(--reg)}
+
+/* opciones */
+.tabs{display:flex;border-bottom:1px solid var(--grid-strong)}
+.tabs button{font:inherit;font-weight:600;background:none;border:0;color:var(--ink-dim);padding:12px 0;margin-right:32px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:color .15s var(--out),border-color .15s var(--out)}
+.tabs button:hover{color:var(--ink)}
+.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--cut)}
+.panel{display:none}
+.panel.on{display:block}
+.rows{margin:0}
+.rows div{display:grid;grid-template-columns:240px 1fr;gap:28px;padding:18px 0;border-bottom:1px dashed var(--grid-strong)}
+.rows dt{font-weight:600}
+.rows dd{margin:0;color:var(--ink-dim)}
+
+/* FAQ */
+.faq{columns:2;column-gap:56px}
+.faq details{break-inside:avoid;border-top:1px dashed var(--grid-strong);padding:4px 0 6px}
+.faq summary{cursor:pointer;list-style:none;padding:16px 32px 12px 0;font-weight:600;position:relative}
+.faq summary::-webkit-details-marker{display:none}
+.faq summary::after{content:"";position:absolute;right:4px;top:22px;width:9px;height:9px;border-right:2px solid var(--cut);border-bottom:2px solid var(--cut);transform:rotate(45deg);transition:transform .2s var(--out)}
+.faq details[open] summary::after{transform:rotate(-135deg)}
+.faq p{margin:0 0 16px;color:var(--ink-dim)}
+
+/* cierre: la hoja terminada, entre líneas de corte */
+.final{margin:120px 0 0;padding:96px 0;border-top:1px dashed var(--cut);border-bottom:1px dashed var(--cut);text-align:center}
+.final h2{font-size:clamp(2.6rem,6vw,5rem)}
+.final p{color:var(--ink-dim);margin:0 auto 34px;max-width:40ch}
+footer{padding:30px 0 44px;color:var(--ink-faint);font-size:14px}
+footer .wrap{display:flex;flex-wrap:wrap;gap:18px;justify-content:space-between}
+footer a{color:var(--ink-dim)}
+
+/* responsive */
+@media (max-width:900px){
+  .bar nav{display:none}
+  .story .wrap{grid-template-columns:1fr;gap:0}
+  .step.hero{min-height:0;padding:56px 0 36px}
+  .steps{display:contents}
+  .step.hero{order:0}
+  .stage-col{order:1}
+  .steps-rest{order:2;padding:24px 0 0}
+  .stage{position:relative;top:0;height:auto;max-height:none}
+  .stage svg{aspect-ratio:400/500;height:auto}
+  .steps-rest .step{min-height:0;opacity:.6;padding:16px 0;border-top:1px dashed var(--grid-strong);cursor:pointer}
+  .steps-rest .step:last-child{min-height:0}
+  .steps-rest .step.on{opacity:1}
+  .steps-rest .step h3{font-size:1.3rem;margin-bottom:6px}
+  .steps-rest .step p{display:none}
+  .steps-rest .step.on p{display:block}
+  .order,.install{grid-template-columns:1fr}
+  .faq{columns:1}
+  .rows div{grid-template-columns:1fr;gap:4px}
+  section.block{padding:88px 0 24px}
+  .note{padding-left:0}
+}
+/* Movimiento reducido: sin desplazamientos; los cambios de estado se
+   mantienen como cambios de opacidad y color. */
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  #stage .piece,.btn{transition:none}
+  #stage .scan{display:none}
+  #stage[data-step="5"] .cutline{stroke-dashoffset:0;transition:opacity .4s}
+}
 </style>
 </head>
 <body>
 
-<header class="nav"><div class="wrap">
-  <a class="logo" href="#">Auto<span>Sort</span> Gangsheet</a>
+<header class="bar"><div class="wrap">
+  <a class="brand" href="#">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12 L20 4 L15.5 12 L20 20 Z" fill="#ff5b1f"/><circle cx="12" cy="12" r="11" fill="none" stroke="#efe8d8" stroke-dasharray="2 2"/></svg>
+    AutoSort
+  </a>
   <nav>
-    <a href="#funciones">Funciones</a><a href="#instalacion">Instalación</a>
-    <a href="#uso">Cómo funciona</a><a href="#opciones">Opciones</a><a href="#faq">Preguntas</a>
+    <a href="#paso-2">Cómo funciona</a><a href="#funciones">Funciones</a><a href="#instalar">Instalar</a><a href="#opciones">Opciones</a><a href="#faq">Preguntas</a>
   </nav>
   <a class="btn" href="download/AutoSort-Gangsheet.jsx" download>Descargar</a>
 </div></header>
 
 <main>
-<div class="wrap hero">
-  <h1>Gangsheets DTF <em>sin desperdiciar película</em></h1>
-  <p class="lead">Script gratuito para Adobe Illustrator que acomoda tus diseños en la hoja con el menor largo posible, deja la separación justa para recortar, etiqueta las tallas y exporta el PNG listo para el RIP.</p>
-  <div class="cta">
-    <a class="btn" href="download/AutoSort-Gangsheet.jsx" download>Descargar el script (.jsx)</a>
-    <a class="btn ghost" href="#instalacion">Cómo instalarlo</a>
-    <a class="btn ghost" href="https://github.com/eguiajosue/auto-sort">Ver en GitHub</a>
+<!-- La portada es el paso 1 de la historia: el escenario ya está en pantalla. -->
+<section class="story" id="como">
+  <div class="wrap">
+    <div class="steps">
+      <div class="step hero" data-step="0">
+        <h1>Más diseños,<br>menos <em>película</em>.</h1>
+        <p class="lead">Un script gratuito para Adobe Illustrator que arma tus gangsheets DTF: encaja las siluetas, deja la separación justa para recortar y exporta el PNG para el RIP.</p>
+        <div class="cta">
+          <a class="btn" href="download/AutoSort-Gangsheet.jsx" download>
+            <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1v9m0 0L4 6m4 4 4-4M2 14h12" stroke="currentColor" stroke-width="2" fill="none"/></svg>
+            Descargar el script
+          </a>
+          <a class="btn quiet" href="#paso-2">Baja y míralo trabajar</a>
+        </div>
+        <p class="compat">Para Illustrator CC 2018 o posterior, en Windows y macOS. Un solo archivo, sin cuentas ni internet.</p>
+      </div>
+      <div class="steps-rest">
+        <div class="step" data-step="1" id="paso-2" tabindex="0">
+          <div class="n">2 de 6</div>
+          <h3>Mide cada pieza sin tocar su tamaño.</h3>
+          <p>Cada grupo cuenta como una sola pieza. En grupos con máscara de recorte mide la máscara, no el arte oculto.</p>
+          <p class="fact">el tamaño nunca cambia: solo posición y giro</p>
+        </div>
+        <div class="step" data-step="2" tabindex="0">
+          <div class="n">3 de 6</div>
+          <h3>Acomoda rápido, por cajas.</h3>
+          <p>Prueba varias combinaciones de orden y posición, y gira 90° cuando ahorra espacio, hasta dar con el largo mínimo para tu ancho de rollo.</p>
+          <p class="fact">método: rectángulos</p>
+        </div>
+        <div class="step" data-step="3" tabindex="0">
+          <div class="n">4 de 6</div>
+          <h3>Encaja las siluetas.</h3>
+          <p>Lee la silueta de cada diseño en una cuadrícula fina y le añade un halo con la separación de corte. Después gira las copias 0°, 90°, 180° o 270° para que entren en los huecos de las otras.</p>
+          <p class="fact">en pruebas: 102.7 cm → 52.2 cm de largo</p>
+        </div>
+        <div class="step" data-step="4" tabindex="0">
+          <div class="n">5 de 6</div>
+          <h3>Cada copia, con su talla.</h3>
+          <p>Indicas cuántas copias quieres de cada talla, de XS a 4XL o personalizada. Cada una lleva una etiqueta discreta en una capa aparte, fácil de ocultar o recortar.</p>
+        </div>
+        <div class="step" data-step="5" tabindex="0">
+          <div class="n">6 de 6</div>
+          <h3>Hoja ajustada, lista para cortar.</h3>
+          <p>Ajusta la mesa de trabajo al largo exacto, redondeado o al tamaño estándar más cercano, calcula el costo y exporta un PNG transparente por hoja.</p>
+          <p class="fact">si no cabe todo, continúa en hojas nuevas</p>
+        </div>
+      </div>
+    </div>
+    <div class="stage-col">
+      <div class="stage">
+        <div class="stage-head"><span id="stageTitle">1/6 · entrada</span><span class="ticks" id="ticks"><i></i><i></i><i></i><i></i><i></i><i></i></span></div>
+        <svg id="stage" data-step="0" viewBox="0 0 400 500" role="img" aria-labelledby="stageDesc">
+          <desc id="stageDesc">Demostración animada: nueve diseños regados se miden, se acomodan en una hoja de rollo, se encajan por su silueta, reciben su talla y se trazan sus líneas de corte.</desc>
+          <defs>
+            <pattern id="cellp" width="8" height="8" patternUnits="userSpaceOnUse">
+              <rect width="8" height="8" fill="none" stroke="#10201a" stroke-opacity=".55" stroke-width=".8"/>
+            </pattern>
+          </defs>
+          <text class="cap" x="80" y="80">ROLLO 58 CM · DEMOSTRACIÓN</text>
+          <rect id="sheet" class="sheet" x="80" y="90" width="240" height="0"/>
+          <line id="ruler" class="ruler" x1="336" y1="90" x2="336" y2="90"/>
+          <text id="rtext" class="rtext" x="342" y="110"></text>
+          <rect class="scan" x="0" y="20" width="400" height="1.5" fill="#f2c14e"/>
+          <g id="pieces"></g>
+          <text id="save" class="save" x="200" y="460" text-anchor="middle"></text>
+          <g class="export" transform="translate(200 440)">
+            <rect x="-86" y="-15" width="172" height="30" rx="3"/>
+            <text x="0" y="4.5" text-anchor="middle">hoja_1.png · 300 ppi</text>
+          </g>
+        </svg>
+        <div class="stage-foot"><span>piezas <b>9</b></span><span>largo <b id="len">—</b></span></div>
+      </div>
+    </div>
   </div>
-  <div class="badges"><span>Illustrator CC 2018 o posterior</span><span>Windows y macOS</span><span>Un solo archivo</span><span>Sin conexión ni cuentas</span></div>
-</div>
+</section>
 
-<section id="forma"><div class="wrap">
-  <h2>Del rectángulo a la forma real</h2>
-  <p class="sub">El método <b>Forma real</b> encaja las siluetas: una copia girada 180° entra en el hueco de la otra. Misma pieza, mucha menos película.</p>
-  <div class="compare">
-    <figure>
-      <svg viewBox="0 0 240 220" role="img" aria-label="Dos flechas en rectángulos separados">
-        <rect x="14" y="8" width="212" height="100" rx="3" fill="none" stroke="currentColor" stroke-opacity=".35" stroke-dasharray="4 3"/>
-        <rect x="14" y="112" width="212" height="100" rx="3" fill="none" stroke="currentColor" stroke-opacity=".35" stroke-dasharray="4 3"/>
-        <path d="M30 58 L214 14 L170 58 L214 102 Z" fill="#e8590c"/>
-        <path d="M30 162 L214 118 L170 162 L214 206 Z" fill="#e8590c"/>
-      </svg>
-      <figcaption><b>Rectángulos</b> · rápido, pero deja espacio muerto dentro de cada caja.</figcaption>
-    </figure>
-    <figure>
-      <svg viewBox="0 0 240 220" role="img" aria-label="Dos flechas intercaladas">
-        <rect x="14" y="8" width="212" height="156" rx="3" fill="none" stroke="currentColor" stroke-opacity=".35" stroke-dasharray="4 3"/>
-        <path d="M30 58 L214 14 L170 58 L214 102 Z" fill="#e8590c"/>
-        <path d="M210 114 L26 70 L70 114 L26 158 Z" fill="#e8590c" fill-opacity=".85"/>
-      </svg>
-      <figcaption><b>Forma real</b> · las siluetas se intercalan respetando la separación de corte.</figcaption>
-    </figure>
+<!-- FUNCIONES -->
+<section class="block" id="funciones"><div class="wrap">
+  <h2>Todo lo que pide un pedido real.</h2>
+  <p class="sub">Una sola ventana con tres pestañas: Acomodo, Cantidades y Salida. Esto es lo que entra en cada orden.</p>
+  <dl class="order">
+    <div class="line"><dt>Tamaño original <span>0 % de cambio</span></dt><dd>Solo mueve y gira en múltiplos de 90°. Los grupos y las máscaras de recorte cuentan como una pieza.</dd></div>
+    <div class="line"><dt>Separación de corte <span>3 mm por defecto</span></dt><dd>Distancia mínima entre piezas y al borde, en mm, cm o pulgadas.</dd></div>
+    <div class="line"><dt>Forma real <span>0° · 90° · 180° · 270°</span></dt><dd>Encaja siluetas irregulares: una copia girada entra en el hueco de otra.</dd></div>
+    <div class="line"><dt>Rollo o mesa fija <span>ancho × largo</span></dt><dd>Ancho fijo con el largo mínimo, o dentro de la mesa de trabajo actual.</dd></div>
+    <div class="line"><dt>Cantidades y tallas <span>XS → 4XL</span></dt><dd>Copias por diseño y varias tallas a la vez, con etiqueta discreta en su propia capa.</dd></div>
+    <div class="line"><dt>Varias hojas <span>largo máx. por hoja</span></dt><dd>Lo que no cabe continúa en mesas de trabajo nuevas.</dd></div>
+    <div class="line"><dt>Revisión previa <span>ppi · vínculos · líneas</span></dt><dd>Avisa de baja resolución, vínculos rotos, líneas muy finas y textos sin contornos.</dd></div>
+    <div class="line"><dt>Largo y costo <span>cm · m · in · ft</span></dt><dd>Largo exacto, redondeado o tamaño estándar, con costo estimado.</dd></div>
+    <div class="line"><dt>Salida para el RIP <span>PNG · 300 ppi</span></dt><dd>Transparente, uno por hoja, con la medida en el nombre del archivo.</dd></div>
+    <div class="line"><dt>Lo que eliges, lo ves <span>selección en vivo</span></dt><dd>Al elegir un diseño en la lista se resalta en el lienzo. Recuerda tus últimos ajustes.</dd></div>
+  </dl>
+</div></section>
+
+<!-- INSTALACIÓN -->
+<section class="block" id="instalar"><div class="wrap">
+  <h2>Un archivo, tres pasos.</h2>
+  <p class="sub">Sin instalador, sin cuenta y sin conexión a internet.</p>
+  <div class="install">
+    <div>
+      <div class="file">
+        <svg viewBox="0 0 48 56" aria-hidden="true"><path d="M2 2h30l14 14v38H2z" fill="none" stroke="#efe8d8" stroke-width="1.5"/><path d="M32 2v14h14" fill="none" stroke="#efe8d8" stroke-width="1.5"/><rect x="2" y="32" width="32" height="14" fill="#ff5b1f"/><text x="6" y="43" font-size="10" font-family="IBM Plex Mono,monospace" fill="#160b05" font-weight="500">.JSX</text></svg>
+        <div><b>AutoSort-Gangsheet.jsx</b><span>ExtendScript para Illustrator CC 2018 o posterior</span></div>
+      </div>
+      <a class="btn" href="download/AutoSort-Gangsheet.jsx" download>
+        <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1v9m0 0L4 6m4 4 4-4M2 14h12" stroke="currentColor" stroke-width="2" fill="none"/></svg>
+        Descargar el script
+      </a>
+      <span class="hint">Si el navegador lo abre como texto: clic derecho → <i>Guardar enlace como…</i></span>
+    </div>
+    <div>
+      <ol class="path">
+        <li><b>Cierra Illustrator</b><p>Así reconoce el archivo nuevo al abrir.</p></li>
+        <li><b>Copia el archivo a la carpeta de scripts</b><p>Windows: <code>C:\Program Files\Adobe\Adobe Illustrator &lt;versión&gt;\Presets\&lt;idioma&gt;\Scripts\</code><br>macOS: <code>/Applications/Adobe Illustrator &lt;versión&gt;/Presets.localized/&lt;idioma&gt;/Scripts/</code></p></li>
+        <li><b>Ejecútalo</b><p>Archivo → Secuencias de comandos → <i>AutoSort-Gangsheet</i>. Sin instalar: <i>Otra secuencia de comandos…</i> y elige el archivo.</p></li>
+      </ol>
+      <p class="note"><b>Al actualizar:</b> reemplaza el archivo y reinicia Illustrator; a veces sigue usando la copia que cargó al abrir.</p>
+    </div>
   </div>
-  <p class="note">En pruebas con una silueta de flecha de 10 × 25 cm, 20 copias en un rollo de 58 cm pasaron de 102.7 cm a 52.2 cm de largo. El ahorro real depende de la forma de tus diseños.</p>
 </div></section>
 
-<section id="funciones"><div class="wrap">
-  <h2>Qué hace</h2>
-  <p class="sub">Todo lo que un pedido real necesita, dentro de una sola ventana.</p>
-  <div class="grid">
-    <div class="card"><h3>Nunca cambia el tamaño</h3><p>Solo mueve y gira (0°, 90°, 180°, 270°). Cada grupo cuenta como una sola pieza, incluidos los de máscara de recorte.</p></div>
-    <div class="card"><h3>Separación para recortar</h3><p>Distancia configurable entre piezas y al borde (3 mm por defecto), en mm, cm o pulgadas.</p></div>
-    <div class="card"><h3>Rollo o mesa fija</h3><p>Ancho fijo con largo automático (rollo DTF) o dentro de la mesa de trabajo actual.</p></div>
-    <div class="card"><h3>Cantidades y tallas</h3><p>Copias por diseño y varias tallas a la vez (XS–4XL o personalizada) con una etiqueta discreta bajo cada copia.</p></div>
-    <div class="card"><h3>Varias hojas</h3><p>Lo que no cabe continúa en mesas de trabajo nuevas, con un largo máximo por hoja.</p></div>
-    <div class="card"><h3>Revisión previa</h3><p>Avisa de imágenes de baja resolución, vínculos rotos, líneas muy finas y textos sin convertir a contornos.</p></div>
-    <div class="card"><h3>Largo y costo</h3><p>Largo exacto, redondeado o el menor tamaño estándar donde quepa, con costo estimado por metro, cm, pulgada o pie.</p></div>
-    <div class="card"><h3>PNG listo para el RIP</h3><p>Exporta PNG transparente a la resolución que elijas, uno por hoja, con la medida en el nombre.</p></div>
-    <div class="card"><h3>Recuerda tu configuración</h3><p>Guarda tus últimos ajustes y los vuelve a cargar la próxima vez.</p></div>
+<!-- OPCIONES -->
+<section class="block" id="opciones"><div class="wrap">
+  <h2>Tres pestañas, cero sorpresas.</h2>
+  <p class="sub">Todo lo que puedes ajustar antes de pulsar Acomodar.</p>
+  <div class="tabs" role="tablist" aria-label="Pestañas del script">
+    <button role="tab" id="tb1" aria-selected="true" aria-controls="t1" data-tab="t1">Acomodo</button>
+    <button role="tab" id="tb2" aria-selected="false" aria-controls="t2" data-tab="t2" tabindex="-1">Cantidades</button>
+    <button role="tab" id="tb3" aria-selected="false" aria-controls="t3" data-tab="t3" tabindex="-1">Salida</button>
+  </div>
+  <div class="panel on" id="t1" role="tabpanel" aria-labelledby="tb1"><dl class="rows">
+    <div><dt>Elementos</dt><dd>Selección actual, o todo lo visible y desbloqueado.</dd></div>
+    <div><dt>Lienzo</dt><dd>Rollo (ancho fijo, largo automático) o mesa de trabajo actual.</dd></div>
+    <div><dt>Separación y margen</dt><dd>Espacio mínimo entre piezas y hasta el borde de la hoja.</dd></div>
+    <div><dt>Rotación</dt><dd>No rotar, o girar en sentido horario o antihorario.</dd></div>
+    <div><dt>Calidad</dt><dd>Rápida, Normal o Máxima (prueba más combinaciones; más lenta).</dd></div>
+    <div><dt>Método</dt><dd>Rectángulos (rápido) o Forma real (encaja siluetas).</dd></div>
+    <div><dt>Precisión</dt><dd>Solo forma real: cuadrícula de 1, 2, 3 o 5 mm. 2 mm es un buen equilibrio.</dd></div>
+    <div><dt>Varias hojas</dt><dd>Continúa en hojas nuevas; largo máximo por hoja y máximo de hojas.</dd></div>
+  </dl></div>
+  <div class="panel" id="t2" role="tabpanel" aria-labelledby="tb2"><dl class="rows">
+    <div><dt>Asignar copias</dt><dd>Cuántas copias se acomodan de cada fila (0 = no acomodar).</dd></div>
+    <div><dt>Tallas por diseño…</dt><dd>XS a 4XL, sin etiqueta y 3 tallas personalizadas, para uno o varios diseños a la vez.</dd></div>
+    <div><dt>Asignar o agregar talla</dt><dd>Pone una talla a las filas, o crea otra fila del mismo diseño.</dd></div>
+    <div><dt>Quitar fila / Reiniciar</dt><dd>Quita filas o vuelve al estado inicial.</dd></div>
+    <div><dt>Mostrar en el lienzo</dt><dd>Selecciona y centra la pieza elegida en la lista.</dd></div>
+    <div><dt>Atajo en el nombre</dt><dd>Un objeto llamado <code>Logo x10</code> toma 10 copias automáticamente.</dd></div>
+  </dl></div>
+  <div class="panel" id="t3" role="tabpanel" aria-labelledby="tb3"><dl class="rows">
+    <div><dt>Ajustar mesa de trabajo</dt><dd>En modo rollo, cambia el largo del artboard al resultado.</dd></div>
+    <div><dt>Largo</dt><dd>Exacto, redondeado a unidad entera, o el menor tamaño estándar donde quepa.</dd></div>
+    <div><dt>Costo estimado</dt><dd>Precio por cm, m, in o ft de largo (0 = no calcular).</dd></div>
+    <div><dt>Exportar PNG</dt><dd>Transparente a la resolución que elijas (300 ppi por defecto), uno por hoja, en la carpeta del documento.</dd></div>
+    <div><dt>Revisión previa</dt><dd>Resolución mínima (ppi) y grosor mínimo de línea.</dd></div>
+  </dl></div>
+</div></section>
+
+<!-- FAQ -->
+<section class="block" id="faq"><div class="wrap">
+  <h2>Lo que suelen preguntar.</h2>
+  <p class="sub">Y si no está aquí, abre un <a href="https://github.com/eguiajosue/auto-sort/issues">issue en GitHub</a>.</p>
+  <div class="faq">
+    <details><summary>¿Cambia el tamaño de mis diseños?</summary><p>No. Solo cambia su posición y los gira en múltiplos de 90°. Las copias son duplicados a tamaño original.</p></details>
+    <details><summary>¿Cuándo uso «Forma real» y cuándo «Rectángulos»?</summary><p>Forma real ahorra más película con diseños irregulares (flechas, logos con huecos, textos curvos), pero tarda más. Para diseños casi rectangulares, Rectángulos rinde igual y es más rápido.</p></details>
+    <details><summary>Forma real tarda mucho.</summary><p>Sube la precisión a 3 o 5 mm, usa calidad Rápida o acomoda por tandas con Varias hojas.</p></details>
+    <details><summary>Dice «sin silueta legible».</summary><p>No pudo capturar la silueta de ese diseño y usó su rectángulo. El resultado es correcto, solo sin el ahorro de forma real para ese diseño.</p></details>
+    <details><summary>La etiqueta de talla se imprime.</summary><p>Sí, va en la película. Queda separada del diseño para recortarla, o oculta la capa «Etiquetas de talla» antes de imprimir o exportar.</p></details>
+    <details><summary>¿Hay un límite de tamaño?</summary><p>El lienzo de Illustrator mide unos 577 × 577 cm. Si la hoja no cabe, el script sube la mesa de trabajo o te sugiere Varias hojas, sin modificar nada.</p></details>
+    <details><summary>¿Cómo trata los grupos?</summary><p>Como una sola pieza. Si seleccionas algo dentro de un grupo, se acomoda el grupo completo.</p></details>
+    <details><summary>Aparece un error al ejecutarlo.</summary><p>Confirma que tienes la versión más reciente, reemplaza el archivo y reinicia Illustrator. Si sigue, abre un <a href="https://github.com/eguiajosue/auto-sort/issues">issue</a> con una captura que muestre la línea del error.</p></details>
   </div>
 </div></section>
 
-<section id="instalacion"><div class="wrap">
-  <h2>Instalación</h2>
-  <p class="sub">Un solo archivo. No necesita instalador ni conexión a internet.</p>
-  <div class="dl">
-    <a class="btn" href="download/AutoSort-Gangsheet.jsx" download>Descargar AutoSort-Gangsheet.jsx</a>
-    <p>Si el navegador lo abre como texto, usa clic derecho → <i>Guardar enlace como…</i></p>
-  </div>
-  <h3 style="margin-top:28px">Opción A · Instalar en el menú de Scripts</h3>
-  <ol class="steps">
-    <li><b>Cierra Illustrator</b>Para que reconozca el archivo nuevo al abrir.</li>
-    <li><b>Copia el archivo a la carpeta de scripts</b>
-      Windows: <code>C:\Program Files\Adobe\Adobe Illustrator &lt;versión&gt;\Presets\&lt;idioma&gt;\Scripts\</code><br>
-      macOS: <code>/Applications/Adobe Illustrator &lt;versión&gt;/Presets.localized/&lt;idioma&gt;/Scripts/</code><br>
-      Puede pedir permisos de administrador.</li>
-    <li><b>Abre Illustrator y ejecútalo</b>Archivo → Secuencias de comandos → <i>AutoSort-Gangsheet</i>.</li>
-  </ol>
-  <h3 style="margin-top:28px">Opción B · Sin instalar</h3>
-  <p>Archivo → Secuencias de comandos → <i>Otra secuencia de comandos…</i> y elige el archivo.</p>
-  <p class="note">Al actualizar a una versión nueva, reemplaza el archivo y <b>reinicia Illustrator</b>: a veces sigue usando la copia que cargó al abrir.</p>
-</div></section>
-
-<section id="uso"><div class="wrap">
-  <h2>Cómo funciona</h2>
-  <p class="sub">De tus diseños sueltos a una hoja lista para imprimir en cuatro pasos.</p>
-  <ol class="steps">
-    <li><b>Prepara los diseños</b>Cada diseño como objeto o grupo en el documento. Selecciona los que quieras acomodar, o ninguno para usar todo lo visible y desbloqueado.</li>
-    <li><b>Abre el script y configura la hoja</b>En la pestaña <i>Acomodo</i> elige rollo (ancho fijo) o mesa de trabajo, la separación para recortar, la rotación y el método (rectángulos o forma real).</li>
-    <li><b>Define cantidades y tallas</b>En <i>Cantidades</i> asigna las copias de cada diseño. Con <i>Tallas por diseño…</i> capturas, por ejemplo, S ×5, M ×10, XL ×3 de una sola vez. Al elegir una fila, la pieza se resalta en el lienzo.</li>
-    <li><b>Acomoda y exporta</b>Pulsa <i>Acomodar</i>. El resumen te dice el tamaño de cada hoja, el aprovechamiento y el costo estimado; si activaste la exportación, también guarda los PNG.</li>
-  </ol>
-  <h3 style="margin-top:32px">Tallas y etiquetas</h3>
-  <p>Cada copia lleva una etiqueta pequeña con su talla, en una capa aparte llamada <code>Etiquetas de talla</code>. La talla también queda en la nota del objeto, así que si vuelves a ejecutar el script cada copia la conserva. Un nombre de objeto que termina en <code>x10</code> (por ejemplo <code>Logo x10</code>) toma 10 copias automáticamente.</p>
-  <p class="note"><b>Ojo:</b> la etiqueta se imprime en la película. Queda separada del diseño para poder recortarla, o puedes ocultar la capa antes de imprimir o exportar.</p>
-  <h3 style="margin-top:32px">Varias hojas</h3>
-  <p>Con <i>Varias hojas</i> activado, lo que no cabe continúa en mesas de trabajo nuevas llamadas <code>Gangsheet - Hoja 2, 3…</code> a la derecha. En modo rollo eliges el largo máximo por hoja y la última se acorta a lo que ocupa. Al volver a ejecutar el script, esas hojas se reemplazan.</p>
-</div></section>
-
-<section id="opciones"><div class="wrap">
-  <h2>Opciones</h2>
-  <p class="sub">La ventana tiene tres pestañas.</p>
-  <h3>Acomodo</h3>
-  <table>
-    <tr><th>Opción</th><th>Descripción</th></tr>
-    <tr><td>Elementos</td><td>Selección actual, o todo lo visible y desbloqueado.</td></tr>
-    <tr><td>Lienzo</td><td>Rollo (ancho fijo, largo automático) o mesa de trabajo actual.</td></tr>
-    <tr><td>Entre elementos / Margen</td><td>Espacio mínimo entre piezas y hasta el borde de la hoja.</td></tr>
-    <tr><td>Rotación</td><td>No rotar, o girar en sentido horario o antihorario.</td></tr>
-    <tr><td>Calidad</td><td>Rápida, Normal o Máxima (prueba más combinaciones; más lenta).</td></tr>
-    <tr><td>Método</td><td><b>Rectángulos</b> (rápido) o <b>Forma real</b> (encaja siluetas).</td></tr>
-    <tr><td>Precisión</td><td>Solo forma real: cuadrícula de 1, 2, 3 o 5 mm. 2 mm es un buen equilibrio.</td></tr>
-    <tr><td>Varias hojas</td><td>Continúa en hojas nuevas; largo máximo por hoja y máximo de hojas.</td></tr>
-  </table>
-  <h3 style="margin-top:28px">Cantidades</h3>
-  <table>
-    <tr><th>Botón</th><th>Qué hace</th></tr>
-    <tr><td>Asignar copias</td><td>Cambia cuántas copias se acomodan (0 = no acomodar).</td></tr>
-    <tr><td>Tallas por diseño…</td><td>Captura copias de XS a 4XL, sin etiqueta y 3 tallas personalizadas para uno o varios diseños.</td></tr>
-    <tr><td>Asignar talla / Agregar talla</td><td>Pone una talla a las filas, o crea otra fila del mismo diseño con otra talla.</td></tr>
-    <tr><td>Quitar fila / Reiniciar lista</td><td>Quita filas o vuelve al estado inicial.</td></tr>
-    <tr><td>Mostrar en el lienzo</td><td>Selecciona y centra la pieza elegida en la lista.</td></tr>
-  </table>
-  <h3 style="margin-top:28px">Salida</h3>
-  <table>
-    <tr><th>Opción</th><th>Descripción</th></tr>
-    <tr><td>Ajustar la mesa de trabajo</td><td>En modo rollo, cambia el largo del artboard al resultado.</td></tr>
-    <tr><td>Largo</td><td>Exacto, redondeado a unidad entera, o tamaño estándar (lista editable).</td></tr>
-    <tr><td>Costo estimado</td><td>Precio por cm, m, in o ft de largo (0 = no calcular).</td></tr>
-    <tr><td>Exportar PNG</td><td>PNG transparente a N ppi, uno por hoja, en la carpeta del documento.</td></tr>
-    <tr><td>Revisión previa</td><td>Resolución mínima (ppi) y grosor mínimo de línea.</td></tr>
-  </table>
-</div></section>
-
-<section id="faq"><div class="wrap">
-  <h2>Preguntas frecuentes</h2>
-  <p class="sub">&nbsp;</p>
-  <details><summary>¿Cambia el tamaño de mis diseños?</summary><p>No. Solo cambia su posición y los gira en múltiplos de 90°. Las copias son duplicados a su tamaño original.</p></details>
-  <details><summary>¿Cómo trata los grupos?</summary><p>Como una sola pieza. En grupos con máscara de recorte se mide la forma de la máscara, no el arte que queda oculto. Si seleccionas algo dentro de un grupo, se acomoda el grupo completo.</p></details>
-  <details><summary>¿Cuándo conviene «Forma real» y cuándo «Rectángulos»?</summary><p>Forma real ahorra más película con diseños irregulares (flechas, logos con huecos, textos curvos), pero tarda más. Para diseños casi rectangulares, Rectángulos es más rápido y rinde igual.</p></details>
-  <details><summary>Forma real tarda mucho, ¿qué hago?</summary><p>Sube la precisión a 3 o 5 mm, usa calidad Rápida, o acomoda por tandas con la opción Varias hojas.</p></details>
-  <details><summary>Dice «sin silueta legible».</summary><p>El script no pudo capturar la silueta de ese diseño y usó su rectángulo. El resultado sigue siendo correcto, solo sin el ahorro de forma real para ese diseño.</p></details>
-  <details><summary>¿Hay un límite de tamaño?</summary><p>Sí. El lienzo de Illustrator mide unos 577 × 577 cm y ninguna mesa de trabajo puede salirse de él. Si la hoja no cabe, el script sube la mesa de trabajo o te sugiere activar Varias hojas, sin modificar nada.</p></details>
-  <details><summary>La etiqueta de talla se imprime, ¿cómo evito eso?</summary><p>Oculta la capa «Etiquetas de talla» antes de imprimir o exportar, o recórtala: queda separada del diseño.</p></details>
-  <details><summary>Aparece un error al ejecutarlo.</summary><p>Confirma que tienes la versión más reciente, reemplaza el archivo y reinicia Illustrator. Si persiste, abre un <a href="https://github.com/eguiajosue/auto-sort/issues">issue en GitHub</a> con una captura que muestre el número de línea.</p></details>
+<section class="final"><div class="wrap">
+  <h2>Deja de acomodar a mano.</h2>
+  <p>Gratis y en un solo archivo. Tu próximo pedido, en menos película.</p>
+  <a class="btn" href="download/AutoSort-Gangsheet.jsx" download>
+    <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1v9m0 0L4 6m4 4 4-4M2 14h12" stroke="currentColor" stroke-width="2" fill="none"/></svg>
+    Descargar AutoSort
+  </a>
 </div></section>
 </main>
 
 <footer><div class="wrap">
-  AutoSort Gangsheet DTF · <a href="https://github.com/eguiajosue/auto-sort">Código en GitHub</a> ·
-  <a href="https://github.com/eguiajosue/auto-sort/issues">Reportar un problema</a>
+  <span>AutoSort Gangsheet DTF</span>
+  <span><a href="https://github.com/eguiajosue/auto-sort">Código en GitHub</a> · <a href="https://github.com/eguiajosue/auto-sort/issues">Reportar un problema</a></span>
 </div></footer>
+
+<script>
+(function () {
+  "use strict";
+  var NS = "http://www.w3.org/2000/svg";
+  var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  // ---------- geometría de la demostración ----------
+  // Flecha "<" de 110 x 56 centrada en el origen. 1 unidad = 0.4 cm (ilustrativo).
+  var CHEV = "M-55 0 L55 -28 L29 0 L55 28 Z";
+  var CIRC = "M-25 0 A25 25 0 1 0 25 0 A25 25 0 1 0 -25 0 Z";
+  var BLOB = "M-25 -10 Q-25 -25 -10 -25 L25 -25 L25 10 Q25 25 10 25 L-25 25 Z";
+  var GAP = 8, LEFT = 80, TOP = 90, SCALE = 0.4, STEP = 41;
+
+  var pieces = [
+    { kind: "chev", d: CHEV, w: 110, h: 56, tag: "S" },
+    { kind: "chev", d: CHEV, w: 110, h: 56, tag: "M" },
+    { kind: "chev", d: CHEV, w: 110, h: 56, tag: "M" },
+    { kind: "chev", d: CHEV, w: 110, h: 56, tag: "L" },
+    { kind: "chev", d: CHEV, w: 110, h: 56, tag: "XL" },
+    { kind: "chev", d: CHEV, w: 110, h: 56, tag: "XL" },
+    { kind: "circ", d: CIRC, w: 50, h: 50, tag: "S" },
+    { kind: "circ", d: CIRC, w: 50, h: 50, tag: "M" },
+    { kind: "blob", d: BLOB, w: 50, h: 50, tag: "L" }
+  ];
+
+  var scatter = [
+    [110, 90, 0], [300, 70, 0], [250, 190, 0], [95, 250, 0], [290, 330, 0],
+    [130, 410, 0], [215, 110, 0], [330, 440, 0], [60, 160, 0]
+  ];
+  var cx0 = LEFT + 4 + 55, cx1 = cx0 + 110 + GAP, r0 = TOP + 4 + 28;
+  var rect = [
+    [cx0, r0, 0], [cx0, r0 + 64, 0], [cx0, r0 + 128, 0],
+    [cx1, r0, 0], [cx1, r0 + 64, 0], [cx1, r0 + 128, 0],
+    [LEFT + 29, r0 + 189, 0], [LEFT + 87, r0 + 189, 0], [LEFT + 145, r0 + 189, 0]
+  ];
+  var rectLen = 4 + 3 * 64 + 50 + 4;
+  var c0 = r0 + 2 * STEP + 28 + GAP + 25;
+  var shape = [
+    [cx0, r0, 0], [cx0, r0 + STEP, 180], [cx0, r0 + 2 * STEP, 0],
+    [cx1, r0, 0], [cx1, r0 + STEP, 180], [cx1, r0 + 2 * STEP, 0],
+    [LEFT + 29, c0, 0], [LEFT + 87, c0, 0], [LEFT + 145, c0, 0]
+  ];
+  var shapeLen = c0 + 25 + 4 - TOP;
+
+  var layouts = [scatter, scatter, rect, shape, shape, shape];
+  var sheetLen = [0, 0, rectLen, shapeLen, shapeLen, shapeLen];
+  var titles = ["entrada", "medición", "rectángulos", "forma real", "tallas", "salida"];
+
+  document.getElementById("save").textContent =
+    "−" + Math.round((1 - shapeLen / rectLen) * 100) + " % de película en esta hoja";
+
+  var root = document.getElementById("pieces");
+  function el(name, attrs, parent) {
+    var e = document.createElementNS(NS, name), k;
+    for (k in attrs) e.setAttribute(k, attrs[k]);
+    if (parent) parent.appendChild(e);
+    return e;
+  }
+
+  pieces.forEach(function (p, i) {
+    var g = el("g", { "class": "piece " + p.kind }, root);
+    el("path", { "class": "halo", d: p.d }, g);
+    el("rect", { "class": "bbox", x: -p.w / 2 - 2, y: -p.h / 2 - 2, width: p.w + 4, height: p.h + 4 }, g);
+    el("path", { "class": "shape", d: p.d }, g);
+    el("path", { "class": "cells", d: p.d, fill: "url(#cellp)" }, g);
+    // línea de corte un poco por fuera de la silueta
+    el("path", { "class": "cutline", d: p.d, transform: "scale(" + ((p.w + 7) / p.w) + " " + ((p.h + 7) / p.h) + ")" }, g);
+    var tg = el("g", { transform: "translate(" + (p.kind === "chev" ? 40 : 0) + " 0)" }, g);
+    var tin = el("g", {}, tg); // contragiro: el texto nunca queda de cabeza
+    el("rect", { "class": "tagbg", x: -11, y: -7, width: 22, height: 14, rx: 2 }, tin);
+    el("text", { "class": "tag", x: 0, y: 3.5, "text-anchor": "middle" }, tin).textContent = p.tag;
+    p.g = g;
+    p.tagg = tin;
+    g.style.transitionDelay = Math.min(i * 40, 240) + "ms";
+  });
+
+  // ---------- largo de la hoja (regla y contador) ----------
+  var sheet = document.getElementById("sheet"), ruler = document.getElementById("ruler");
+  var rtext = document.getElementById("rtext"), lenOut = document.getElementById("len");
+  var curLen = 0, anim = null;
+  function drawLen(v) {
+    sheet.setAttribute("height", Math.max(0, v));
+    sheet.style.opacity = v > 1 ? 1 : 0;
+    ruler.setAttribute("y2", TOP + v);
+    rtext.setAttribute("y", TOP + v / 2 + 4);
+    var txt = v > 1 ? (v * SCALE).toFixed(1) + " cm" : "";
+    rtext.textContent = txt;
+    lenOut.textContent = txt || "—";
+  }
+  function tweenLen(to) {
+    if (anim) cancelAnimationFrame(anim);
+    if (reduce) { curLen = to; drawLen(to); return; }
+    var from = curLen, t0 = null, dur = 900;
+    function frame(t) {
+      if (t0 === null) t0 = t;
+      var k = Math.min(1, (t - t0) / dur);
+      var e = 1 - Math.pow(1 - k, 4); // desaceleración exponencial
+      curLen = from + (to - from) * e;
+      drawLen(curLen);
+      if (k < 1) anim = requestAnimationFrame(frame);
+    }
+    anim = requestAnimationFrame(frame);
+  }
+
+  // ---------- pasos ----------
+  var stage = document.getElementById("stage");
+  var ticks = document.querySelectorAll("#ticks i");
+  var title = document.getElementById("stageTitle");
+  var steps = document.querySelectorAll(".step");
+  var current = -1;
+  function go(step) {
+    if (step === current) return;
+    current = step;
+    stage.setAttribute("data-step", step);
+    var lay = layouts[step];
+    pieces.forEach(function (p, i) {
+      var q = lay[i];
+      p.g.style.transform = "translate(" + q[0] + "px," + q[1] + "px) rotate(" + q[2] + "deg)";
+      p.tagg.setAttribute("transform", "rotate(" + (-q[2]) + ")");
+    });
+    tweenLen(sheetLen[step]);
+    for (var d = 0; d < ticks.length; d++) ticks[d].className = d <= step ? "on" : "";
+    title.textContent = (step + 1) + "/6 · " + titles[step];
+    for (var k = 0; k < steps.length; k++) steps[k].classList.toggle("on", k === step);
+  }
+  go(0);
+
+  var mobile = window.matchMedia("(max-width:900px)").matches;
+  if (mobile) {
+    // Celular: la demostración avanza sola mientras está en pantalla; tocar
+    // un paso salta a él.
+    var timer = null, visible = false, at = 0;
+    var tick = function () { at = (at + 1) % 6; go(at); };
+    var sync = function () {
+      if (timer) { clearInterval(timer); timer = null; }
+      if (visible && !document.hidden && !reduce) timer = setInterval(tick, 3200);
+    };
+    steps.forEach(function (st) {
+      st.addEventListener("click", function () { at = +st.getAttribute("data-step"); go(at); sync(); });
+    });
+    document.addEventListener("visibilitychange", sync);
+    if ("IntersectionObserver" in window) {
+      new IntersectionObserver(function (en) { visible = en[0].isIntersecting; sync(); }, { threshold: .3 })
+        .observe(document.querySelector(".stage"));
+    }
+  } else if ("IntersectionObserver" in window) {
+    // Escritorio: el paso que cruza el centro de la ventana manda.
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) { if (en.isIntersecting) go(+en.target.getAttribute("data-step")); });
+    }, { rootMargin: "-45% 0px -45% 0px" });
+    steps.forEach(function (s) { io.observe(s); });
+  }
+
+  // ---------- pestañas (con flechas del teclado) ----------
+  var tabs = Array.prototype.slice.call(document.querySelectorAll(".tabs button"));
+  function select(b) {
+    tabs.forEach(function (x) {
+      var on = x === b;
+      x.setAttribute("aria-selected", on ? "true" : "false");
+      x.tabIndex = on ? 0 : -1;
+      document.getElementById(x.getAttribute("data-tab")).classList.toggle("on", on);
+    });
+  }
+  tabs.forEach(function (b, i) {
+    b.addEventListener("click", function () { select(b); });
+    b.addEventListener("keydown", function (e) {
+      var j = e.key === "ArrowRight" ? i + 1 : e.key === "ArrowLeft" ? i - 1 : null;
+      if (j === null) return;
+      var t = tabs[(j + tabs.length) % tabs.length];
+      select(t); t.focus(); e.preventDefault();
+    });
+  });
+})();
+</script>
 </body>
 </html>
