@@ -11,28 +11,34 @@
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root{
-  --mat:#10201a;        /* tapete de corte */
-  --mat-2:#162b23;
-  --mat-3:#1d362c;
-  --grid:rgba(234,226,208,.055);
-  --grid-strong:rgba(234,226,208,.12);
-  --ink:#efe8d8;        /* papel crema */
-  --ink-dim:#a9b3a6;
-  --ink-faint:#6f7d72;
-  --cut:#ff5b1f;        /* línea de corte */
-  --reg:#f2c14e;        /* registro */
+  --mat:#10201a;          /* tapete de corte */
+  --mat-2:#152a22;
+  --mat-3:#1c352b;
+  --grid:rgba(234,226,208,.05);
+  --grid-strong:rgba(234,226,208,.11);
+  --ink:#efe8d8;          /* papel crema */
+  --ink-dim:#b4bdb1;
+  --ink-faint:#8d9a8f;    /* ≥4.5:1 sobre el tapete */
+  --cut:#ff5b1f;          /* línea de corte */
+  --cut-d:#ff7a45;
+  --reg:#f2c14e;          /* registro */
   --cyan:#3fc1c9;
   --mag:#e2508f;
   --display:"Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;
   --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
-  --ease:cubic-bezier(.7,0,.2,1);
+  --out:cubic-bezier(.16,1,.3,1);
   color-scheme:dark;
 }
 *{box-sizing:border-box}
-html{scroll-behavior:smooth}
+html{scroll-behavior:smooth;scrollbar-color:var(--mat-3) var(--mat)}
+::-webkit-scrollbar{width:10px}
+::-webkit-scrollbar-track{background:var(--mat)}
+::-webkit-scrollbar-thumb{background:var(--mat-3);border:2px solid var(--mat)}
+::selection{background:var(--cut);color:#160b05}
 body{
-  margin:0;background:var(--mat);color:var(--ink);
+  margin:0;background-color:var(--mat);color:var(--ink);
   font:17px/1.6 var(--display);
+  /* el tapete: cuadrícula fina y líneas mayores cada 5 cuadros */
   background-image:
     linear-gradient(var(--grid) 1px,transparent 1px),
     linear-gradient(90deg,var(--grid) 1px,transparent 1px),
@@ -41,219 +47,184 @@ body{
   background-size:24px 24px,24px 24px,120px 120px,120px 120px;
   background-position:-1px -1px;
 }
-a{color:var(--reg)}
-::selection{background:var(--cut);color:#111}
-.mono{font-family:var(--mono);font-size:.82em;letter-spacing:.02em}
-.wrap{max-width:1160px;margin:0 auto;padding:0 24px}
+a{color:var(--reg);text-underline-offset:3px;text-decoration-thickness:1px}
+a:focus-visible,button:focus-visible,summary:focus-visible,.step:focus-visible{outline:2px dashed var(--cut);outline-offset:4px}
+.wrap{max-width:1180px;margin:0 auto;padding:0 24px}
 
 /* ---------- barra ---------- */
-.bar{position:sticky;top:0;z-index:20;background:rgba(16,32,26,.86);backdrop-filter:blur(10px);border-bottom:1px dashed var(--grid-strong)}
-.bar .wrap{display:flex;align-items:center;gap:24px;height:60px}
-.brand{display:flex;align-items:center;gap:10px;color:var(--ink);text-decoration:none;font-weight:800;letter-spacing:-.02em}
-.brand svg{width:22px;height:22px}
-.bar nav{margin-left:auto;display:flex;gap:22px}
-.bar nav a{color:var(--ink-dim);text-decoration:none;font-family:var(--mono);font-size:13px}
+.bar{position:sticky;top:0;z-index:20;background:var(--mat);border-bottom:1px dashed var(--grid-strong)}
+.bar .wrap{display:flex;align-items:center;gap:28px;height:62px}
+.brand{display:flex;align-items:center;gap:10px;color:var(--ink);text-decoration:none;font-weight:800;letter-spacing:-.02em;font-size:18px}
+.brand svg{width:24px;height:24px}
+.bar nav{margin-left:auto;display:flex;gap:26px}
+.bar nav a{color:var(--ink-dim);text-decoration:none;font-size:15px}
 .bar nav a:hover{color:var(--ink)}
 .btn{
-  --b:var(--cut);
   display:inline-flex;align-items:center;gap:10px;
-  background:var(--b);color:#160b05;font-weight:800;text-decoration:none;
-  padding:13px 22px;border-radius:2px;position:relative;
-  transition:transform .2s var(--ease),box-shadow .2s var(--ease);
-  box-shadow:4px 4px 0 #000;
+  background:var(--cut);color:#160b05;font-weight:800;text-decoration:none;font-size:16px;
+  padding:14px 22px;border-radius:3px;
+  box-shadow:0 10px 24px -12px rgba(255,91,31,.55);
+  transition:background .15s var(--out),transform .15s var(--out);
 }
-.btn:hover{transform:translate(-2px,-2px);box-shadow:6px 6px 0 #000}
-.btn:active{transform:translate(2px,2px);box-shadow:2px 2px 0 #000}
-.btn.line{--b:transparent;color:var(--ink);box-shadow:none;outline:1px dashed var(--ink-faint)}
-.btn.line:hover{outline-color:var(--ink);transform:none}
-.bar .btn{padding:8px 14px;font-size:14px;box-shadow:3px 3px 0 #000}
+.btn:hover{background:var(--cut-d)}
+.btn:active{transform:translateY(1px)}
+.btn svg{flex:none}
+.btn.quiet{background:none;color:var(--ink);box-shadow:none;padding:14px 4px;text-decoration:underline;text-decoration-style:dashed;text-decoration-color:var(--ink-faint)}
+.btn.quiet:hover{text-decoration-color:var(--ink)}
+.bar .btn{padding:9px 16px;font-size:14px}
 
-/* ---------- hero ---------- */
-.hero{padding:84px 0 40px;position:relative}
-.hero .wrap{display:grid;grid-template-columns:1.15fr .85fr;gap:48px;align-items:center}
-.ticket{font-family:var(--mono);font-size:12px;color:var(--ink-faint);display:flex;gap:18px;flex-wrap:wrap;margin-bottom:22px;text-transform:uppercase;letter-spacing:.08em}
-.ticket b{color:var(--reg);font-weight:500}
-h1{font-size:clamp(2.6rem,6.4vw,5.4rem);line-height:.95;letter-spacing:-.045em;margin:0 0 26px;font-weight:800}
-h1 .cutword{position:relative;display:inline-block;color:var(--cut)}
-h1 .cutword::after{
-  content:"";position:absolute;left:-6px;right:-6px;top:-4px;bottom:-2px;
-  border:2px dashed var(--cut);border-radius:6px;opacity:.55;
-  animation:march 1.2s linear infinite;
-}
-@keyframes march{to{border-color:var(--cut);transform:translateX(0)}}
-.lead{font-size:1.2rem;color:var(--ink-dim);max-width:560px;margin:0 0 32px}
-.cta{display:flex;flex-wrap:wrap;gap:14px;align-items:center}
-.meta{margin-top:28px;display:flex;flex-wrap:wrap;gap:8px 20px;font-family:var(--mono);font-size:12px;color:var(--ink-faint)}
-.meta span::before{content:"+ ";color:var(--cut)}
-
-/* mini animación del hero: dos flechas que se intercalan sin fin */
-.loop{position:relative;aspect-ratio:1;max-width:420px;justify-self:center;width:100%}
-.loop svg{width:100%;height:100%;overflow:visible}
-.loop .sheet{fill:rgba(239,232,216,.03);stroke:var(--ink-faint);stroke-dasharray:3 4}
-.loop .a,.loop .b{fill:var(--cut)}
-.loop .b{fill:var(--reg)}
-.loop .ga{animation:la 6s var(--ease) infinite}
-.loop .gb{animation:lb 6s var(--ease) infinite}
-@keyframes la{0%,12%{transform:translate(40px,40px)}38%,88%{transform:translate(130px,115px)}100%{transform:translate(40px,40px)}}
-@keyframes lb{0%,12%{transform:translate(200px,250px) rotate(0deg)}38%{transform:translate(130px,164px) rotate(180deg)}88%{transform:translate(130px,164px) rotate(180deg)}100%{transform:translate(200px,250px) rotate(360deg)}}
-.loop .len{font-family:var(--mono);font-size:11px;fill:var(--ink-dim)}
-.loop .ruler{stroke:var(--reg);stroke-width:1.5}
-.loop .rl{animation:rl 6s var(--ease) infinite;transform-origin:0 70px}
-@keyframes rl{0%,12%{transform:scaleY(1)}38%,88%{transform:scaleY(.62)}100%{transform:scaleY(1)}}
-.reg{position:absolute;width:26px;height:26px}
-.reg::before,.reg::after{content:"";position:absolute;background:var(--ink-faint)}
-.reg::before{left:12px;top:0;width:1px;height:26px}
-.reg::after{top:12px;left:0;height:1px;width:26px}
-.reg i{position:absolute;inset:6px;border:1px solid var(--ink-faint);border-radius:50%}
-
-/* ---------- secciones ---------- */
-section{padding:96px 0;position:relative}
-.kicker{font-family:var(--mono);font-size:12px;text-transform:uppercase;letter-spacing:.14em;color:var(--cut);margin:0 0 14px;display:flex;align-items:center;gap:12px}
-.kicker::before{content:"";width:28px;height:0;border-top:2px dashed var(--cut)}
-h2{font-size:clamp(2rem,4vw,3.2rem);line-height:1;letter-spacing:-.035em;margin:0 0 18px;font-weight:800}
-.sub{color:var(--ink-dim);max-width:620px;margin:0 0 48px;font-size:1.08rem}
-
-/* ---------- historia animada ---------- */
-.story{padding-top:40px}
-.story .wrap{display:grid;grid-template-columns:.9fr 1.1fr;gap:56px}
-.steps{padding:12vh 0 30vh}
-.step{min-height:68vh;display:flex;flex-direction:column;justify-content:center;opacity:.28;transition:opacity .5s}
-.step.on{opacity:1}
-.step .n{font-family:var(--mono);font-size:12px;color:var(--reg);letter-spacing:.1em;margin-bottom:12px}
-.step h3{font-size:clamp(1.6rem,2.8vw,2.3rem);line-height:1.05;letter-spacing:-.03em;margin:0 0 14px}
-.step p{color:var(--ink-dim);margin:0 0 12px;max-width:440px}
-.step .fact{font-family:var(--mono);font-size:13px;color:var(--ink);border-left:2px solid var(--cut);padding:4px 0 4px 12px;margin-top:10px}
+/* ---------- historia (la portada es su primer paso) ---------- */
+.story .wrap{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);gap:64px}
+.step{min-height:78vh;display:flex;flex-direction:column;justify-content:center;opacity:.42;transition:opacity .4s var(--out)}
+.step.on,.step.hero{opacity:1}
+.step.hero{min-height:calc(100vh - 62px);padding-bottom:6vh}
+.steps-rest .step:last-child{min-height:90vh}
+h1{font-size:clamp(2.8rem,6.2vw,5.6rem);line-height:.94;letter-spacing:-.04em;margin:0 0 28px;font-weight:800;text-wrap:balance}
+h1 em{font-style:normal;color:var(--cut)}
+.lead{font-size:1.22rem;color:var(--ink-dim);max-width:34ch;margin:0 0 34px}
+.cta{display:flex;flex-wrap:wrap;gap:20px;align-items:center}
+.compat{margin-top:30px;color:var(--ink-faint);font-size:14px;max-width:46ch}
+.step .n{font-family:var(--mono);font-size:13px;color:var(--reg);margin-bottom:14px;font-variant-numeric:tabular-nums}
+.step h3{font-size:clamp(1.7rem,2.9vw,2.5rem);line-height:1.04;letter-spacing:-.03em;margin:0 0 16px;text-wrap:balance}
+.step p{color:var(--ink-dim);margin:0 0 12px;max-width:42ch}
+.step .fact{font-family:var(--mono);font-size:13px;color:var(--ink);margin-top:14px;padding-top:12px;border-top:1px dashed var(--grid-strong);max-width:42ch}
 .stage-col{position:relative}
 .stage{
-  position:sticky;top:84px;height:calc(100vh - 120px);max-height:760px;
+  position:sticky;top:86px;height:calc(100vh - 116px);max-height:780px;
   background:var(--mat-2);border:1px solid var(--grid-strong);
   display:flex;flex-direction:column;
 }
-.stage-head{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px dashed var(--grid-strong);font-family:var(--mono);font-size:12px;color:var(--ink-faint)}
-.stage-head .dots{display:flex;gap:6px}
-.stage-head .dots i{width:8px;height:8px;border-radius:50%;background:var(--mat-3);border:1px solid var(--ink-faint);transition:background .3s}
-.stage-head .dots i.on{background:var(--cut);border-color:var(--cut)}
+.stage-head,.stage-foot{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;font-family:var(--mono);font-size:12px;color:var(--ink-faint)}
+.stage-head{border-bottom:1px dashed var(--grid-strong)}
+.stage-foot{border-top:1px dashed var(--grid-strong);color:var(--ink-dim)}
+.stage-foot b{color:var(--reg);font-weight:500;font-variant-numeric:tabular-nums}
+.ticks{display:flex;gap:4px}
+.ticks i{width:18px;height:3px;background:var(--mat-3);transition:background .3s var(--out)}
+.ticks i.on{background:var(--cut)}
 .stage svg{flex:1;width:100%;min-height:0}
-.stage-foot{display:flex;justify-content:space-between;padding:10px 16px;border-top:1px dashed var(--grid-strong);font-family:var(--mono);font-size:12px;color:var(--ink-dim)}
-.stage-foot b{color:var(--reg);font-weight:500}
 
-/* elementos del escenario */
-#stage .sheet{fill:rgba(239,232,216,.035);stroke:var(--ink);stroke-width:1;stroke-dasharray:4 4;transition:opacity .6s,stroke .6s,fill .6s}
-#stage .piece{transition:transform 1.1s var(--ease)}
-#stage .shape{transition:fill .6s}
+/* escenario */
+#stage .sheet{fill:rgba(239,232,216,.035);stroke:var(--ink);stroke-width:1;stroke-dasharray:4 4;transition:opacity .5s var(--out),stroke .5s,fill .5s}
+#stage .piece{transition:transform 1s var(--out)}
 #stage .chev .shape{fill:var(--cut)}
 #stage .circ .shape{fill:var(--cyan)}
 #stage .blob .shape{fill:var(--mag)}
-#stage .bbox{fill:none;stroke:var(--reg);stroke-width:1;stroke-dasharray:3 3;opacity:0;transition:opacity .5s}
-#stage .save{font-family:var(--display);font-weight:800;font-size:26px;fill:var(--reg);opacity:0;transition:opacity .5s .6s}
-#stage[data-step="3"] .save{opacity:1}
-#stage .halo{fill:none;stroke:var(--ink);stroke-opacity:.16;stroke-width:8;stroke-linejoin:round;opacity:0;transition:opacity .6s}
-#stage .cells{opacity:0;transition:opacity .6s}
-#stage .tag{font-family:var(--mono);font-size:10px;font-weight:500;fill:#111;opacity:0;transition:opacity .4s}
-#stage .tagbg{fill:var(--ink);opacity:0;transition:opacity .4s}
+#stage .bbox{fill:none;stroke:var(--reg);stroke-width:1;stroke-dasharray:3 3;opacity:0;transition:opacity .4s var(--out)}
+#stage .halo{fill:none;stroke:var(--ink);stroke-opacity:.16;stroke-width:8;stroke-linejoin:round;opacity:0;transition:opacity .5s var(--out)}
+#stage .cells{opacity:0;transition:opacity .5s var(--out)}
+/* línea de corte: se traza alrededor de cada silueta al final */
+#stage .cutline{fill:none;stroke:var(--reg);stroke-width:1.2;stroke-linejoin:round;stroke-dasharray:400;stroke-dashoffset:400;opacity:0;vector-effect:non-scaling-stroke}
+#stage .tag{font-family:var(--mono);font-size:10px;font-weight:500;fill:#111;opacity:0;transition:opacity .3s var(--out)}
+#stage .tagbg{fill:var(--ink);opacity:0;transition:opacity .3s var(--out)}
 #stage[data-step="1"] .bbox,#stage[data-step="2"] .bbox{opacity:.9}
 #stage[data-step="3"] .halo,#stage[data-step="3"] .cells{opacity:1}
 #stage[data-step="4"] .tag,#stage[data-step="4"] .tagbg,#stage[data-step="5"] .tag,#stage[data-step="5"] .tagbg{opacity:1}
+#stage[data-step="5"] .cutline{opacity:1;stroke-dashoffset:0;transition:stroke-dashoffset 1.4s var(--out) .2s,opacity .2s}
+#stage[data-step="5"] .sheet{stroke:var(--reg);stroke-dasharray:none;fill:rgba(242,193,78,.05)}
 #stage .ruler{stroke:var(--reg);stroke-width:1.5}
 #stage .rtext{font-family:var(--mono);font-size:11px;fill:var(--reg)}
-#stage .cap{font-family:var(--mono);font-size:10px;fill:var(--ink-faint);letter-spacing:.08em}
-#stage .stamp{opacity:0;transform:translate(200px,420px) scale(1.6) rotate(-6deg);transition:opacity .4s,transform .6s cubic-bezier(.2,1.6,.4,1)}
-#stage[data-step="5"] .stamp{opacity:1;transform:translate(200px,420px) scale(1) rotate(-6deg)}
-#stage .cap{opacity:0;transition:opacity .5s}
-#stage[data-step="2"] .cap,#stage[data-step="3"] .cap,#stage[data-step="4"] .cap,#stage[data-step="5"] .cap{opacity:1}
-#stage[data-step="5"] .sheet{stroke:var(--reg);stroke-dasharray:none;fill:rgba(242,193,78,.06)}
-#stage .stamp rect{fill:none;stroke:var(--cut);stroke-width:2.5}
-#stage .stamp text{font-family:var(--mono);font-weight:500;fill:var(--cut);font-size:15px;letter-spacing:.06em}
+#stage .cap{font-family:var(--mono);font-size:10px;fill:var(--ink-faint);letter-spacing:.06em;opacity:0;transition:opacity .4s}
+#stage:not([data-step="0"]):not([data-step="1"]) .cap{opacity:1}
+#stage .save{font-weight:800;font-size:22px;fill:var(--reg);opacity:0;transition:opacity .4s var(--out) .7s}
+#stage[data-step="3"] .save{opacity:1}
+#stage .export{opacity:0;transition:opacity .4s var(--out) 1.2s}
+#stage[data-step="5"] .export{opacity:1}
+#stage .export rect{fill:var(--cut)}
+#stage .export text{font-family:var(--mono);font-size:12px;font-weight:500;fill:#160b05}
 #stage .scan{opacity:0}
-#stage[data-step="1"] .scan{animation:scan 1.6s var(--ease) .2s 1 both}
-@keyframes scan{0%{opacity:0;transform:translateY(0)}15%{opacity:.8}85%{opacity:.8}100%{opacity:0;transform:translateY(460px)}}
+#stage[data-step="1"] .scan{animation:scan 1.4s var(--out) .15s 1 both}
+@keyframes scan{0%{opacity:0;transform:translateY(0)}15%{opacity:.7}85%{opacity:.7}100%{opacity:0;transform:translateY(440px)}}
 
-/* ---------- ficha de funciones ---------- */
-.specs{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--grid-strong);border-left:1px solid var(--grid-strong)}
-.spec{padding:26px 24px 28px;border-right:1px solid var(--grid-strong);border-bottom:1px solid var(--grid-strong);position:relative;transition:background .3s}
-.spec:hover{background:rgba(239,232,216,.03)}
-.spec .code{font-family:var(--mono);font-size:11px;color:var(--ink-faint);letter-spacing:.1em}
-.spec h3{margin:10px 0 8px;font-size:1.15rem;letter-spacing:-.01em}
-.spec p{margin:0;color:var(--ink-dim);font-size:.95rem}
-.spec .ico{position:absolute;top:22px;right:22px;width:30px;height:30px;color:var(--cut)}
+/* ---------- secciones ---------- */
+section.block{padding:120px 0 40px}
+h2{font-size:clamp(2.1rem,4.4vw,3.6rem);line-height:1;letter-spacing:-.035em;margin:0 0 20px;font-weight:800;text-wrap:balance}
+.sub{color:var(--ink-dim);max-width:52ch;margin:0 0 56px;font-size:1.1rem}
 
-/* ---------- instalación ---------- */
-.install{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:start}
-.dlbox{background:var(--mat-2);border:1px solid var(--grid-strong);padding:28px;position:relative}
-.dlbox .file{display:flex;align-items:center;gap:14px;margin-bottom:22px}
-.dlbox .file svg{width:44px;height:52px;flex:none}
-.dlbox .file b{display:block;font-size:1.1rem}
-.dlbox .file span{color:var(--ink-faint);font-family:var(--mono);font-size:12px}
-.dlbox small{display:block;margin-top:16px;color:var(--ink-faint);font-size:.88rem}
+/* ficha de trabajo: las funciones como una orden de producción */
+.order{display:grid;grid-template-columns:1fr 1fr;gap:0 64px;margin:0;border-top:1px solid var(--grid-strong)}
+.line{padding:22px 0;border-bottom:1px dashed var(--grid-strong)}
+.line dt{display:flex;align-items:baseline;gap:12px;font-weight:600;font-size:1.1rem}
+.line dt::after{content:"";flex:1;border-bottom:1px dotted var(--ink-faint);transform:translateY(-4px);order:1}
+.line dt span{order:2;font-family:var(--mono);font-size:13px;font-weight:400;color:var(--reg);white-space:nowrap;font-variant-numeric:tabular-nums}
+.line dd{margin:6px 0 0;color:var(--ink-dim);font-size:.97rem;max-width:46ch}
+
+/* instalación */
+.install{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:64px;align-items:start}
+.file{display:flex;align-items:center;gap:16px;margin-bottom:26px}
+.file svg{width:48px;height:56px;flex:none}
+.file b{display:block;font-size:1.15rem}
+.file span{color:var(--ink-faint);font-size:14px}
+.hint{display:block;margin-top:18px;color:var(--ink-faint);font-size:.92rem}
 ol.path{list-style:none;margin:0;padding:0;counter-reset:p}
-ol.path li{counter-increment:p;position:relative;padding:0 0 26px 54px}
-ol.path li::before{content:counter(p,decimal-leading-zero);position:absolute;left:0;top:-2px;font-family:var(--mono);font-size:13px;color:var(--mat);background:var(--reg);padding:3px 7px}
-ol.path li::after{content:"";position:absolute;left:16px;top:28px;bottom:4px;border-left:1px dashed var(--ink-faint)}
+ol.path li{counter-increment:p;position:relative;padding:0 0 30px 56px}
+ol.path li::before{content:counter(p);position:absolute;left:0;top:0;width:32px;height:32px;display:grid;place-items:center;font-family:var(--mono);font-size:14px;color:var(--mat);background:var(--reg);border-radius:50%}
+ol.path li::after{content:"";position:absolute;left:16px;top:38px;bottom:6px;border-left:1px dashed var(--ink-faint)}
 ol.path li:last-child::after{display:none}
-ol.path b{display:block;margin-bottom:4px}
-ol.path p{margin:0;color:var(--ink-dim);font-size:.95rem}
-code{font-family:var(--mono);font-size:.84em;background:rgba(0,0,0,.28);padding:2px 6px;border:1px solid var(--grid-strong);word-break:break-all}
-.warn{margin-top:22px;padding:14px 16px;border:1px dashed var(--reg);color:var(--ink-dim);font-size:.95rem}
-.warn b{color:var(--reg)}
+ol.path b{display:block;margin-bottom:4px;font-size:1.08rem}
+ol.path p{margin:0;color:var(--ink-dim)}
+code{font-family:var(--mono);font-size:.84em;background:rgba(0,0,0,.28);padding:2px 6px;border:1px solid var(--grid-strong);border-radius:3px;word-break:break-all}
+.note{margin-top:8px;color:var(--ink-dim);font-size:.96rem;padding:14px 0 0 56px}
+.note b{color:var(--reg)}
 
-/* ---------- opciones ---------- */
-.tabs{display:flex;gap:0;border-bottom:1px solid var(--grid-strong);margin-bottom:0}
-.tabs button{font:inherit;font-family:var(--mono);font-size:13px;background:none;border:0;color:var(--ink-dim);padding:12px 20px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
+/* opciones */
+.tabs{display:flex;border-bottom:1px solid var(--grid-strong)}
+.tabs button{font:inherit;font-weight:600;background:none;border:0;color:var(--ink-dim);padding:12px 0;margin-right:32px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:color .15s var(--out),border-color .15s var(--out)}
+.tabs button:hover{color:var(--ink)}
 .tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--cut)}
 .panel{display:none}
-.panel.on{display:block;animation:fade .4s var(--ease)}
-@keyframes fade{from{opacity:0;transform:translateY(6px)}}
+.panel.on{display:block}
 .rows{margin:0}
-.rows div{display:grid;grid-template-columns:220px 1fr;gap:24px;padding:16px 0;border-bottom:1px dashed var(--grid-strong)}
+.rows div{display:grid;grid-template-columns:240px 1fr;gap:28px;padding:18px 0;border-bottom:1px dashed var(--grid-strong)}
 .rows dt{font-weight:600}
 .rows dd{margin:0;color:var(--ink-dim)}
 
-/* ---------- FAQ ---------- */
-.faq{columns:2;column-gap:40px}
-.faq details{break-inside:avoid;border-top:1px dashed var(--grid-strong);padding:4px 0 6px;margin-bottom:6px}
-.faq summary{cursor:pointer;list-style:none;padding:14px 28px 10px 0;font-weight:600;position:relative}
+/* FAQ */
+.faq{columns:2;column-gap:56px}
+.faq details{break-inside:avoid;border-top:1px dashed var(--grid-strong);padding:4px 0 6px}
+.faq summary{cursor:pointer;list-style:none;padding:16px 32px 12px 0;font-weight:600;position:relative}
 .faq summary::-webkit-details-marker{display:none}
-.faq summary::after{content:"+";position:absolute;right:0;top:10px;font-family:var(--mono);color:var(--cut);font-size:20px;transition:transform .3s}
-.faq details[open] summary::after{transform:rotate(45deg)}
-.faq p{margin:0 0 14px;color:var(--ink-dim);font-size:.96rem}
+.faq summary::after{content:"";position:absolute;right:4px;top:22px;width:9px;height:9px;border-right:2px solid var(--cut);border-bottom:2px solid var(--cut);transform:rotate(45deg);transition:transform .2s var(--out)}
+.faq details[open] summary::after{transform:rotate(-135deg)}
+.faq p{margin:0 0 16px;color:var(--ink-dim)}
 
-/* ---------- cierre ---------- */
-.final{text-align:center;padding:110px 0}
-.final h2{font-size:clamp(2.4rem,5vw,4rem)}
-footer{border-top:1px dashed var(--grid-strong);padding:28px 0 40px;font-family:var(--mono);font-size:12px;color:var(--ink-faint)}
+/* cierre: la hoja terminada, entre líneas de corte */
+.final{margin:120px 0 0;padding:96px 0;border-top:1px dashed var(--cut);border-bottom:1px dashed var(--cut);text-align:center}
+.final h2{font-size:clamp(2.6rem,6vw,5rem)}
+.final p{color:var(--ink-dim);margin:0 auto 34px;max-width:40ch}
+footer{padding:30px 0 44px;color:var(--ink-faint);font-size:14px}
 footer .wrap{display:flex;flex-wrap:wrap;gap:18px;justify-content:space-between}
 footer a{color:var(--ink-dim)}
 
-/* aparición al hacer scroll */
-.rise{opacity:0;transform:translateY(24px);transition:opacity .8s var(--ease),transform .8s var(--ease)}
-.rise.in{opacity:1;transform:none}
-
-/* ---------- responsive ---------- */
+/* responsive */
 @media (max-width:900px){
-  .hero .wrap,.install{grid-template-columns:1fr}
-  .loop{max-width:300px}
+  .bar nav{display:none}
   .story .wrap{grid-template-columns:1fr;gap:0}
-  .stage-col{order:-1}
-  .stage{position:relative;top:0;height:auto}
+  .step.hero{min-height:0;padding:56px 0 36px}
+  .steps{display:contents}
+  .step.hero{order:0}
+  .stage-col{order:1}
+  .steps-rest{order:2;padding:24px 0 0}
+  .stage{position:relative;top:0;height:auto;max-height:none}
   .stage svg{aspect-ratio:400/500;height:auto}
-  .steps{padding:28px 0 0}
-  .step{min-height:0;opacity:.45;padding:16px 0 16px 14px;border-left:2px solid var(--grid-strong);cursor:pointer;margin-bottom:6px}
-  .step.on{border-left-color:var(--cut)}
-  .step h3{font-size:1.25rem}
-  .step p:not(.fact){display:none}
-  .step.on p:not(.fact){display:block}
-  .specs{grid-template-columns:1fr 1fr}
+  .steps-rest .step{min-height:0;opacity:.6;padding:16px 0;border-top:1px dashed var(--grid-strong);cursor:pointer}
+  .steps-rest .step:last-child{min-height:0}
+  .steps-rest .step.on{opacity:1}
+  .steps-rest .step h3{font-size:1.3rem;margin-bottom:6px}
+  .steps-rest .step p{display:none}
+  .steps-rest .step.on p{display:block}
+  .order,.install{grid-template-columns:1fr}
   .faq{columns:1}
   .rows div{grid-template-columns:1fr;gap:4px}
-  .bar nav{display:none}
+  section.block{padding:88px 0 24px}
+  .note{padding-left:0}
 }
-@media (max-width:560px){
-  .specs{grid-template-columns:1fr}
-  section{padding:72px 0}
-}
+/* Movimiento reducido: sin desplazamientos; los cambios de estado se
+   mantienen como cambios de opacidad y color. */
 @media (prefers-reduced-motion:reduce){
-  *,*::before,*::after{animation:none!important;transition:none!important}
-  .rise{opacity:1;transform:none}
+  html{scroll-behavior:auto}
+  #stage .piece,.btn{transition:none}
+  #stage .scan{display:none}
+  #stage[data-step="5"] .cutline{stroke-dashoffset:0;transition:opacity .4s}
 }
 </style>
 </head>
@@ -261,146 +232,125 @@ footer a{color:var(--ink-dim)}
 
 <header class="bar"><div class="wrap">
   <a class="brand" href="#">
-    <svg viewBox="0 0 22 22" aria-hidden="true"><path d="M2 11 L18 3 L14 11 L18 19 Z" fill="#ff5b1f"/><circle cx="11" cy="11" r="10" fill="none" stroke="#efe8d8" stroke-dasharray="2 2"/></svg>
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12 L20 4 L15.5 12 L20 20 Z" fill="#ff5b1f"/><circle cx="12" cy="12" r="11" fill="none" stroke="#efe8d8" stroke-dasharray="2 2"/></svg>
     AutoSort
   </a>
   <nav>
-    <a href="#como">cómo funciona</a><a href="#funciones">funciones</a><a href="#instalar">instalar</a><a href="#opciones">opciones</a><a href="#faq">faq</a>
+    <a href="#paso-2">Cómo funciona</a><a href="#funciones">Funciones</a><a href="#instalar">Instalar</a><a href="#opciones">Opciones</a><a href="#faq">Preguntas</a>
   </nav>
   <a class="btn" href="download/AutoSort-Gangsheet.jsx" download>Descargar</a>
 </div></header>
 
 <main>
-<!-- HERO -->
-<div class="hero"><div class="wrap">
-  <div>
-    <div class="ticket"><span>Job <b>#DTF-001</b></span><span>Ancho <b>58 cm</b></span><span>Separación <b>3 mm</b></span></div>
-    <h1>Más diseños,<br>menos <span class="cutword">película</span>.</h1>
-    <p class="lead">AutoSort es un script gratuito para Adobe Illustrator que arma tus gangsheets DTF: encaja las siluetas de tus diseños, deja la separación justa para recortar, etiqueta tallas y exporta el PNG listo para el RIP.</p>
-    <div class="cta">
-      <a class="btn" href="download/AutoSort-Gangsheet.jsx" download>
-        <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1v9m0 0L4 6m4 4 4-4M2 14h12" stroke="currentColor" stroke-width="2" fill="none"/></svg>
-        Descargar el script
-      </a>
-      <a class="btn line" href="#como">Ver cómo funciona ↓</a>
-    </div>
-    <div class="meta"><span>Illustrator CC 2018+</span><span>Windows y macOS</span><span>un solo archivo .jsx</span><span>sin cuentas ni internet</span></div>
-  </div>
-  <div class="loop" aria-hidden="true">
-    <span class="reg" style="left:-6px;top:-6px"><i></i></span>
-    <span class="reg" style="right:-6px;bottom:-6px"><i></i></span>
-    <svg viewBox="0 0 300 300">
-      <rect class="sheet" x="30" y="30" width="200" height="240"/>
-      <g class="rl"><line class="ruler" x1="250" y1="30" x2="250" y2="270"/></g>
-      <g class="ga"><path class="a" d="M0 37 L150 0 L114 37 L150 74 Z" transform="translate(-75 -37)"/></g>
-      <g class="gb"><path class="b" d="M0 37 L150 0 L114 37 L150 74 Z" transform="translate(-75 -37)"/></g>
-      <text class="len" x="258" y="154">largo</text>
-    </svg>
-  </div>
-</div></div>
-
-<!-- HISTORIA ANIMADA -->
+<!-- La portada es el paso 1 de la historia: el escenario ya está en pantalla. -->
 <section class="story" id="como">
-  <div class="wrap"><div class="rise">
-    <p class="kicker">Cómo funciona</p>
-    <h2>Del caos a la hoja,<br>en seis movimientos.</h2>
-    <p class="sub">Desplázate: la animación muestra, paso a paso, lo que hace el script con tus diseños.</p>
-  </div></div>
   <div class="wrap">
     <div class="steps">
-      <div class="step" data-step="0">
-        <div class="n">01 — ENTRADA</div>
-        <h3>Tus diseños, como sea que estén.</h3>
-        <p>Selecciona lo que quieres acomodar, o nada para usar todo lo visible y desbloqueado. No importa dónde estén ni cómo estén regados.</p>
+      <div class="step hero" data-step="0">
+        <h1>Más diseños,<br>menos <em>película</em>.</h1>
+        <p class="lead">Un script gratuito para Adobe Illustrator que arma tus gangsheets DTF: encaja las siluetas, deja la separación justa para recortar y exporta el PNG para el RIP.</p>
+        <div class="cta">
+          <a class="btn" href="download/AutoSort-Gangsheet.jsx" download>
+            <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1v9m0 0L4 6m4 4 4-4M2 14h12" stroke="currentColor" stroke-width="2" fill="none"/></svg>
+            Descargar el script
+          </a>
+          <a class="btn quiet" href="#paso-2">Baja y míralo trabajar</a>
+        </div>
+        <p class="compat">Para Illustrator CC 2018 o posterior, en Windows y macOS. Un solo archivo, sin cuentas ni internet.</p>
       </div>
-      <div class="step" data-step="1">
-        <div class="n">02 — MEDICIÓN</div>
-        <h3>Mide cada pieza, sin tocar su tamaño.</h3>
-        <p>Cada grupo cuenta como una sola pieza. En grupos con máscara de recorte mide la máscara, no el arte oculto.</p>
-        <p class="fact">el tamaño nunca cambia · solo posición y giro</p>
-      </div>
-      <div class="step" data-step="2">
-        <div class="n">03 — RECTÁNGULOS</div>
-        <h3>Acomodo rápido por cajas.</h3>
-        <p>Prueba varias combinaciones de orden y posición, y gira 90° cuando ahorra espacio. Busca el largo mínimo para tu ancho de rollo.</p>
-        <p class="fact">método: rectángulos (rápido)</p>
-      </div>
-      <div class="step" data-step="3">
-        <div class="n">04 — FORMA REAL</div>
-        <h3>Encaja las siluetas.</h3>
-        <p>Lee la silueta de cada diseño en una cuadrícula fina y le añade un halo con la separación de corte. Luego gira las copias 0°, 90°, 180° o 270° para que entren en los huecos de las otras.</p>
-        <p class="fact">en pruebas: 102.7 cm → 52.2 cm de largo</p>
-      </div>
-      <div class="step" data-step="4">
-        <div class="n">05 — TALLAS</div>
-        <h3>Cada copia, con su talla.</h3>
-        <p>Indica cuántas copias quieres de cada talla (XS a 4XL o personalizada). Cada una lleva una etiqueta discreta en una capa aparte, fácil de ocultar o recortar.</p>
-      </div>
-      <div class="step" data-step="5">
-        <div class="n">06 — SALIDA</div>
-        <h3>Hoja ajustada, PNG listo.</h3>
-        <p>Ajusta la mesa de trabajo al largo exacto, redondeado o al tamaño estándar más cercano; calcula el costo y exporta un PNG transparente por hoja.</p>
-        <p class="fact">si no cabe: continúa en hojas nuevas</p>
+      <div class="steps-rest">
+        <div class="step" data-step="1" id="paso-2" tabindex="0">
+          <div class="n">2 de 6</div>
+          <h3>Mide cada pieza sin tocar su tamaño.</h3>
+          <p>Cada grupo cuenta como una sola pieza. En grupos con máscara de recorte mide la máscara, no el arte oculto.</p>
+          <p class="fact">el tamaño nunca cambia: solo posición y giro</p>
+        </div>
+        <div class="step" data-step="2" tabindex="0">
+          <div class="n">3 de 6</div>
+          <h3>Acomoda rápido, por cajas.</h3>
+          <p>Prueba varias combinaciones de orden y posición, y gira 90° cuando ahorra espacio, hasta dar con el largo mínimo para tu ancho de rollo.</p>
+          <p class="fact">método: rectángulos</p>
+        </div>
+        <div class="step" data-step="3" tabindex="0">
+          <div class="n">4 de 6</div>
+          <h3>Encaja las siluetas.</h3>
+          <p>Lee la silueta de cada diseño en una cuadrícula fina y le añade un halo con la separación de corte. Después gira las copias 0°, 90°, 180° o 270° para que entren en los huecos de las otras.</p>
+          <p class="fact">en pruebas: 102.7 cm → 52.2 cm de largo</p>
+        </div>
+        <div class="step" data-step="4" tabindex="0">
+          <div class="n">5 de 6</div>
+          <h3>Cada copia, con su talla.</h3>
+          <p>Indicas cuántas copias quieres de cada talla, de XS a 4XL o personalizada. Cada una lleva una etiqueta discreta en una capa aparte, fácil de ocultar o recortar.</p>
+        </div>
+        <div class="step" data-step="5" tabindex="0">
+          <div class="n">6 de 6</div>
+          <h3>Hoja ajustada, lista para cortar.</h3>
+          <p>Ajusta la mesa de trabajo al largo exacto, redondeado o al tamaño estándar más cercano, calcula el costo y exporta un PNG transparente por hoja.</p>
+          <p class="fact">si no cabe todo, continúa en hojas nuevas</p>
+        </div>
       </div>
     </div>
     <div class="stage-col">
       <div class="stage">
-        <div class="stage-head"><span id="stageTitle">01 / ENTRADA</span><span class="dots" id="dots"><i></i><i></i><i></i><i></i><i></i><i></i></span></div>
-        <svg id="stage" data-step="0" viewBox="0 0 400 500" role="img" aria-label="Animación del acomodo de diseños en una hoja">
+        <div class="stage-head"><span id="stageTitle">1/6 · entrada</span><span class="ticks" id="ticks"><i></i><i></i><i></i><i></i><i></i><i></i></span></div>
+        <svg id="stage" data-step="0" viewBox="0 0 400 500" role="img" aria-labelledby="stageDesc">
+          <desc id="stageDesc">Demostración animada: nueve diseños regados se miden, se acomodan en una hoja de rollo, se encajan por su silueta, reciben su talla y se trazan sus líneas de corte.</desc>
           <defs>
             <pattern id="cellp" width="8" height="8" patternUnits="userSpaceOnUse">
               <rect width="8" height="8" fill="none" stroke="#10201a" stroke-opacity=".55" stroke-width=".8"/>
             </pattern>
           </defs>
-          <text class="cap" x="80" y="30">ROLLO · 58 CM</text>
-          <rect id="sheet" class="sheet" x="80" y="40" width="240" height="0"/>
-          <line id="ruler" class="ruler" x1="336" y1="40" x2="336" y2="40"/>
-          <text id="rtext" class="rtext" x="342" y="60"></text>
-          <rect class="scan" x="0" y="20" width="400" height="2" fill="#f2c14e"/>
+          <text class="cap" x="80" y="80">ROLLO 58 CM · DEMOSTRACIÓN</text>
+          <rect id="sheet" class="sheet" x="80" y="90" width="240" height="0"/>
+          <line id="ruler" class="ruler" x1="336" y1="90" x2="336" y2="90"/>
+          <text id="rtext" class="rtext" x="342" y="110"></text>
+          <rect class="scan" x="0" y="20" width="400" height="1.5" fill="#f2c14e"/>
           <g id="pieces"></g>
-          <text id="save" class="save" x="200" y="470" text-anchor="middle"></text>
-          <g class="stamp"><rect x="-74" y="-20" width="148" height="40"/><text x="0" y="5" text-anchor="middle">PNG · 300 PPI</text></g>
+          <text id="save" class="save" x="200" y="460" text-anchor="middle"></text>
+          <g class="export" transform="translate(200 440)">
+            <rect x="-86" y="-15" width="172" height="30" rx="3"/>
+            <text x="0" y="4.5" text-anchor="middle">hoja_1.png · 300 ppi</text>
+          </g>
         </svg>
-        <div class="stage-foot"><span>piezas <b id="cnt">9</b></span><span>largo <b id="len">—</b></span></div>
+        <div class="stage-foot"><span>piezas <b>9</b></span><span>largo <b id="len">—</b></span></div>
       </div>
     </div>
   </div>
 </section>
 
 <!-- FUNCIONES -->
-<section id="funciones"><div class="wrap">
-  <div class="rise">
-    <p class="kicker">Funciones</p>
-    <h2>Todo lo que pide<br>un pedido real.</h2>
-    <p class="sub">Una sola ventana, con tres pestañas: Acomodo, Cantidades y Salida.</p>
-  </div>
-  <div class="specs rise">
-    <div class="spec"><svg class="ico" viewBox="0 0 30 30" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="5" y="5" width="20" height="20" stroke-dasharray="3 2"/><path d="M10 15h10M15 10v10"/></svg><div class="code">F-01</div><h3>Nunca cambia el tamaño</h3><p>Solo mueve y gira en múltiplos de 90°. Los grupos y las máscaras de recorte cuentan como una pieza.</p></div>
-    <div class="spec"><svg class="ico" viewBox="0 0 30 30" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 15 L22 6 L17 15 L22 24 Z"/><path d="M27 6 L8 15 L13 15" stroke-dasharray="2 2"/></svg><div class="code">F-02</div><h3>Forma real</h3><p>Encaja siluetas irregulares: una copia girada entra en el hueco de otra, respetando la separación.</p></div>
-    <div class="spec"><svg class="ico" viewBox="0 0 30 30" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 8h22M4 22h22"/><path d="M9 8v14M21 8v14" stroke-dasharray="2 2"/></svg><div class="code">F-03</div><h3>Separación de corte</h3><p>Distancia mínima entre piezas y al borde (3 mm por defecto), en mm, cm o pulgadas.</p></div>
-    <div class="spec"><svg class="ico" viewBox="0 0 30 30" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="4" y="9" width="10" height="12"/><rect x="16" y="9" width="10" height="12"/><text x="6" y="18" font-size="7" fill="currentColor" stroke="none" font-family="monospace">S</text><text x="18" y="18" font-size="7" fill="currentColor" stroke="none" font-family="monospace">XL</text></svg><div class="code">F-04</div><h3>Cantidades y tallas</h3><p>Copias por diseño y varias tallas a la vez, con etiqueta discreta en su propia capa.</p></div>
-    <div class="spec"><svg class="ico" viewBox="0 0 30 30" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="6" width="10" height="18"/><rect x="17" y="6" width="10" height="12"/></svg><div class="code">F-05</div><h3>Varias hojas</h3><p>Lo que no cabe continúa en mesas de trabajo nuevas, con largo máximo por hoja.</p></div>
-    <div class="spec"><svg class="ico" viewBox="0 0 30 30" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="15" cy="15" r="10"/><path d="M15 9v7l4 3"/></svg><div class="code">F-06</div><h3>Revisión previa</h3><p>Avisa de baja resolución, vínculos rotos, líneas muy finas y textos sin contornos.</p></div>
-    <div class="spec"><svg class="ico" viewBox="0 0 30 30" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M5 25V5M5 25h20"/><path d="M5 9h3M5 14h3M5 19h3"/></svg><div class="code">F-07</div><h3>Largo y costo</h3><p>Exacto, redondeado o tamaño estándar; costo estimado por cm, m, in o ft.</p></div>
-    <div class="spec"><svg class="ico" viewBox="0 0 30 30" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M8 3h10l6 6v18H8z"/><path d="M18 3v6h6"/></svg><div class="code">F-08</div><h3>PNG para el RIP</h3><p>Transparente, a la resolución que elijas, uno por hoja y con la medida en el nombre.</p></div>
-    <div class="spec"><svg class="ico" viewBox="0 0 30 30" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="13" cy="13" r="7"/><path d="M18 18l7 7"/></svg><div class="code">F-09</div><h3>Ves lo que eliges</h3><p>Al elegir un diseño en la lista, se resalta en el lienzo. Recuerda tus últimos ajustes.</p></div>
-  </div>
+<section class="block" id="funciones"><div class="wrap">
+  <h2>Todo lo que pide un pedido real.</h2>
+  <p class="sub">Una sola ventana con tres pestañas: Acomodo, Cantidades y Salida. Esto es lo que entra en cada orden.</p>
+  <dl class="order">
+    <div class="line"><dt>Tamaño original <span>0 % de cambio</span></dt><dd>Solo mueve y gira en múltiplos de 90°. Los grupos y las máscaras de recorte cuentan como una pieza.</dd></div>
+    <div class="line"><dt>Separación de corte <span>3 mm por defecto</span></dt><dd>Distancia mínima entre piezas y al borde, en mm, cm o pulgadas.</dd></div>
+    <div class="line"><dt>Forma real <span>0° · 90° · 180° · 270°</span></dt><dd>Encaja siluetas irregulares: una copia girada entra en el hueco de otra.</dd></div>
+    <div class="line"><dt>Rollo o mesa fija <span>ancho × largo</span></dt><dd>Ancho fijo con el largo mínimo, o dentro de la mesa de trabajo actual.</dd></div>
+    <div class="line"><dt>Cantidades y tallas <span>XS → 4XL</span></dt><dd>Copias por diseño y varias tallas a la vez, con etiqueta discreta en su propia capa.</dd></div>
+    <div class="line"><dt>Varias hojas <span>largo máx. por hoja</span></dt><dd>Lo que no cabe continúa en mesas de trabajo nuevas.</dd></div>
+    <div class="line"><dt>Revisión previa <span>ppi · vínculos · líneas</span></dt><dd>Avisa de baja resolución, vínculos rotos, líneas muy finas y textos sin contornos.</dd></div>
+    <div class="line"><dt>Largo y costo <span>cm · m · in · ft</span></dt><dd>Largo exacto, redondeado o tamaño estándar, con costo estimado.</dd></div>
+    <div class="line"><dt>Salida para el RIP <span>PNG · 300 ppi</span></dt><dd>Transparente, uno por hoja, con la medida en el nombre del archivo.</dd></div>
+    <div class="line"><dt>Lo que eliges, lo ves <span>selección en vivo</span></dt><dd>Al elegir un diseño en la lista se resalta en el lienzo. Recuerda tus últimos ajustes.</dd></div>
+  </dl>
 </div></section>
 
 <!-- INSTALACIÓN -->
-<section id="instalar"><div class="wrap">
-  <div class="rise">
-    <p class="kicker">Instalación</p>
-    <h2>Un archivo.<br>Tres pasos.</h2>
-  </div>
-  <div class="install rise">
-    <div class="dlbox">
+<section class="block" id="instalar"><div class="wrap">
+  <h2>Un archivo, tres pasos.</h2>
+  <p class="sub">Sin instalador, sin cuenta y sin conexión a internet.</p>
+  <div class="install">
+    <div>
       <div class="file">
-        <svg viewBox="0 0 44 52" aria-hidden="true"><path d="M2 2h28l12 12v36H2z" fill="none" stroke="#efe8d8" stroke-width="1.5"/><path d="M30 2v12h12" fill="none" stroke="#efe8d8" stroke-width="1.5"/><rect x="2" y="30" width="30" height="13" fill="#ff5b1f"/><text x="5" y="40" font-size="9" font-family="monospace" fill="#160b05" font-weight="700">.JSX</text></svg>
-        <div><b>AutoSort-Gangsheet.jsx</b><span>ExtendScript · Illustrator CC 2018+</span></div>
+        <svg viewBox="0 0 48 56" aria-hidden="true"><path d="M2 2h30l14 14v38H2z" fill="none" stroke="#efe8d8" stroke-width="1.5"/><path d="M32 2v14h14" fill="none" stroke="#efe8d8" stroke-width="1.5"/><rect x="2" y="32" width="32" height="14" fill="#ff5b1f"/><text x="6" y="43" font-size="10" font-family="IBM Plex Mono,monospace" fill="#160b05" font-weight="500">.JSX</text></svg>
+        <div><b>AutoSort-Gangsheet.jsx</b><span>ExtendScript para Illustrator CC 2018 o posterior</span></div>
       </div>
-      <a class="btn" href="download/AutoSort-Gangsheet.jsx" download>Descargar</a>
-      <small>Si el navegador lo abre como texto: clic derecho → <i>Guardar enlace como…</i></small>
+      <a class="btn" href="download/AutoSort-Gangsheet.jsx" download>
+        <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1v9m0 0L4 6m4 4 4-4M2 14h12" stroke="currentColor" stroke-width="2" fill="none"/></svg>
+        Descargar el script
+      </a>
+      <span class="hint">Si el navegador lo abre como texto: clic derecho → <i>Guardar enlace como…</i></span>
     </div>
     <div>
       <ol class="path">
@@ -408,58 +358,52 @@ footer a{color:var(--ink-dim)}
         <li><b>Copia el archivo a la carpeta de scripts</b><p>Windows: <code>C:\Program Files\Adobe\Adobe Illustrator &lt;versión&gt;\Presets\&lt;idioma&gt;\Scripts\</code><br>macOS: <code>/Applications/Adobe Illustrator &lt;versión&gt;/Presets.localized/&lt;idioma&gt;/Scripts/</code></p></li>
         <li><b>Ejecútalo</b><p>Archivo → Secuencias de comandos → <i>AutoSort-Gangsheet</i>. Sin instalar: <i>Otra secuencia de comandos…</i> y elige el archivo.</p></li>
       </ol>
-      <div class="warn"><b>Al actualizar:</b> reemplaza el archivo y reinicia Illustrator; a veces sigue usando la copia que cargó al abrir.</div>
+      <p class="note"><b>Al actualizar:</b> reemplaza el archivo y reinicia Illustrator; a veces sigue usando la copia que cargó al abrir.</p>
     </div>
   </div>
 </div></section>
 
 <!-- OPCIONES -->
-<section id="opciones"><div class="wrap">
-  <div class="rise">
-    <p class="kicker">Opciones</p>
-    <h2>Tres pestañas,<br>cero sorpresas.</h2>
+<section class="block" id="opciones"><div class="wrap">
+  <h2>Tres pestañas, cero sorpresas.</h2>
+  <p class="sub">Todo lo que puedes ajustar antes de pulsar Acomodar.</p>
+  <div class="tabs" role="tablist" aria-label="Pestañas del script">
+    <button role="tab" id="tb1" aria-selected="true" aria-controls="t1" data-tab="t1">Acomodo</button>
+    <button role="tab" id="tb2" aria-selected="false" aria-controls="t2" data-tab="t2" tabindex="-1">Cantidades</button>
+    <button role="tab" id="tb3" aria-selected="false" aria-controls="t3" data-tab="t3" tabindex="-1">Salida</button>
   </div>
-  <div class="rise">
-    <div class="tabs" role="tablist">
-      <button role="tab" aria-selected="true" data-tab="t1">Acomodo</button>
-      <button role="tab" aria-selected="false" data-tab="t2">Cantidades</button>
-      <button role="tab" aria-selected="false" data-tab="t3">Salida</button>
-    </div>
-    <div class="panel on" id="t1" role="tabpanel"><dl class="rows">
-      <div><dt>Elementos</dt><dd>Selección actual, o todo lo visible y desbloqueado.</dd></div>
-      <div><dt>Lienzo</dt><dd>Rollo (ancho fijo, largo automático) o mesa de trabajo actual.</dd></div>
-      <div><dt>Separación y margen</dt><dd>Espacio mínimo entre piezas y hasta el borde de la hoja.</dd></div>
-      <div><dt>Rotación</dt><dd>No rotar, o girar en sentido horario o antihorario.</dd></div>
-      <div><dt>Calidad</dt><dd>Rápida, Normal o Máxima (prueba más combinaciones; más lenta).</dd></div>
-      <div><dt>Método</dt><dd><b>Rectángulos</b> (rápido) o <b>Forma real</b> (encaja siluetas).</dd></div>
-      <div><dt>Precisión</dt><dd>Solo forma real: cuadrícula de 1, 2, 3 o 5 mm. 2 mm es un buen equilibrio.</dd></div>
-      <div><dt>Varias hojas</dt><dd>Continúa en hojas nuevas; largo máximo por hoja y máximo de hojas.</dd></div>
-    </dl></div>
-    <div class="panel" id="t2" role="tabpanel"><dl class="rows">
-      <div><dt>Asignar copias</dt><dd>Cuántas copias se acomodan de cada fila (0 = no acomodar).</dd></div>
-      <div><dt>Tallas por diseño…</dt><dd>XS a 4XL, sin etiqueta y 3 tallas personalizadas, para uno o varios diseños a la vez.</dd></div>
-      <div><dt>Asignar / Agregar talla</dt><dd>Pone una talla a las filas, o crea otra fila del mismo diseño.</dd></div>
-      <div><dt>Quitar fila / Reiniciar</dt><dd>Quita filas o vuelve al estado inicial.</dd></div>
-      <div><dt>Mostrar en el lienzo</dt><dd>Selecciona y centra la pieza elegida en la lista.</dd></div>
-      <div><dt>Atajo en el nombre</dt><dd>Un objeto llamado <code>Logo x10</code> toma 10 copias automáticamente.</dd></div>
-    </dl></div>
-    <div class="panel" id="t3" role="tabpanel"><dl class="rows">
-      <div><dt>Ajustar mesa de trabajo</dt><dd>En modo rollo, cambia el largo del artboard al resultado.</dd></div>
-      <div><dt>Largo</dt><dd>Exacto, redondeado a unidad entera, o el menor tamaño estándar donde quepa.</dd></div>
-      <div><dt>Costo estimado</dt><dd>Precio por cm, m, in o ft de largo (0 = no calcular).</dd></div>
-      <div><dt>Exportar PNG</dt><dd>Transparente a N ppi (300 por defecto), uno por hoja, en la carpeta del documento.</dd></div>
-      <div><dt>Revisión previa</dt><dd>Resolución mínima (ppi) y grosor mínimo de línea.</dd></div>
-    </dl></div>
-  </div>
+  <div class="panel on" id="t1" role="tabpanel" aria-labelledby="tb1"><dl class="rows">
+    <div><dt>Elementos</dt><dd>Selección actual, o todo lo visible y desbloqueado.</dd></div>
+    <div><dt>Lienzo</dt><dd>Rollo (ancho fijo, largo automático) o mesa de trabajo actual.</dd></div>
+    <div><dt>Separación y margen</dt><dd>Espacio mínimo entre piezas y hasta el borde de la hoja.</dd></div>
+    <div><dt>Rotación</dt><dd>No rotar, o girar en sentido horario o antihorario.</dd></div>
+    <div><dt>Calidad</dt><dd>Rápida, Normal o Máxima (prueba más combinaciones; más lenta).</dd></div>
+    <div><dt>Método</dt><dd>Rectángulos (rápido) o Forma real (encaja siluetas).</dd></div>
+    <div><dt>Precisión</dt><dd>Solo forma real: cuadrícula de 1, 2, 3 o 5 mm. 2 mm es un buen equilibrio.</dd></div>
+    <div><dt>Varias hojas</dt><dd>Continúa en hojas nuevas; largo máximo por hoja y máximo de hojas.</dd></div>
+  </dl></div>
+  <div class="panel" id="t2" role="tabpanel" aria-labelledby="tb2"><dl class="rows">
+    <div><dt>Asignar copias</dt><dd>Cuántas copias se acomodan de cada fila (0 = no acomodar).</dd></div>
+    <div><dt>Tallas por diseño…</dt><dd>XS a 4XL, sin etiqueta y 3 tallas personalizadas, para uno o varios diseños a la vez.</dd></div>
+    <div><dt>Asignar o agregar talla</dt><dd>Pone una talla a las filas, o crea otra fila del mismo diseño.</dd></div>
+    <div><dt>Quitar fila / Reiniciar</dt><dd>Quita filas o vuelve al estado inicial.</dd></div>
+    <div><dt>Mostrar en el lienzo</dt><dd>Selecciona y centra la pieza elegida en la lista.</dd></div>
+    <div><dt>Atajo en el nombre</dt><dd>Un objeto llamado <code>Logo x10</code> toma 10 copias automáticamente.</dd></div>
+  </dl></div>
+  <div class="panel" id="t3" role="tabpanel" aria-labelledby="tb3"><dl class="rows">
+    <div><dt>Ajustar mesa de trabajo</dt><dd>En modo rollo, cambia el largo del artboard al resultado.</dd></div>
+    <div><dt>Largo</dt><dd>Exacto, redondeado a unidad entera, o el menor tamaño estándar donde quepa.</dd></div>
+    <div><dt>Costo estimado</dt><dd>Precio por cm, m, in o ft de largo (0 = no calcular).</dd></div>
+    <div><dt>Exportar PNG</dt><dd>Transparente a la resolución que elijas (300 ppi por defecto), uno por hoja, en la carpeta del documento.</dd></div>
+    <div><dt>Revisión previa</dt><dd>Resolución mínima (ppi) y grosor mínimo de línea.</dd></div>
+  </dl></div>
 </div></section>
 
 <!-- FAQ -->
-<section id="faq"><div class="wrap">
-  <div class="rise">
-    <p class="kicker">Preguntas</p>
-    <h2>Lo que suelen preguntar.</h2>
-  </div>
-  <div class="faq rise">
+<section class="block" id="faq"><div class="wrap">
+  <h2>Lo que suelen preguntar.</h2>
+  <p class="sub">Y si no está aquí, abre un <a href="https://github.com/eguiajosue/auto-sort/issues">issue en GitHub</a>.</p>
+  <div class="faq">
     <details><summary>¿Cambia el tamaño de mis diseños?</summary><p>No. Solo cambia su posición y los gira en múltiplos de 90°. Las copias son duplicados a tamaño original.</p></details>
     <details><summary>¿Cuándo uso «Forma real» y cuándo «Rectángulos»?</summary><p>Forma real ahorra más película con diseños irregulares (flechas, logos con huecos, textos curvos), pero tarda más. Para diseños casi rectangulares, Rectángulos rinde igual y es más rápido.</p></details>
     <details><summary>Forma real tarda mucho.</summary><p>Sube la precisión a 3 o 5 mm, usa calidad Rápida o acomoda por tandas con Varias hojas.</p></details>
@@ -467,21 +411,23 @@ footer a{color:var(--ink-dim)}
     <details><summary>La etiqueta de talla se imprime.</summary><p>Sí, va en la película. Queda separada del diseño para recortarla, o oculta la capa «Etiquetas de talla» antes de imprimir o exportar.</p></details>
     <details><summary>¿Hay un límite de tamaño?</summary><p>El lienzo de Illustrator mide unos 577 × 577 cm. Si la hoja no cabe, el script sube la mesa de trabajo o te sugiere Varias hojas, sin modificar nada.</p></details>
     <details><summary>¿Cómo trata los grupos?</summary><p>Como una sola pieza. Si seleccionas algo dentro de un grupo, se acomoda el grupo completo.</p></details>
-    <details><summary>Aparece un error al ejecutarlo.</summary><p>Confirma que tienes la versión más reciente, reemplaza el archivo y reinicia Illustrator. Si sigue, abre un <a href="https://github.com/eguiajosue/auto-sort/issues">issue en GitHub</a> con una captura que muestre la línea.</p></details>
+    <details><summary>Aparece un error al ejecutarlo.</summary><p>Confirma que tienes la versión más reciente, reemplaza el archivo y reinicia Illustrator. Si sigue, abre un <a href="https://github.com/eguiajosue/auto-sort/issues">issue</a> con una captura que muestre la línea del error.</p></details>
   </div>
 </div></section>
 
-<section class="final"><div class="wrap rise">
-  <p class="kicker" style="justify-content:center">Listo para el siguiente pedido</p>
+<section class="final"><div class="wrap">
   <h2>Deja de acomodar a mano.</h2>
-  <p class="sub" style="margin:0 auto 34px">Gratis, sin cuentas y en un solo archivo.</p>
-  <a class="btn" href="download/AutoSort-Gangsheet.jsx" download>Descargar AutoSort</a>
+  <p>Gratis y en un solo archivo. Tu próximo pedido, en menos película.</p>
+  <a class="btn" href="download/AutoSort-Gangsheet.jsx" download>
+    <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1v9m0 0L4 6m4 4 4-4M2 14h12" stroke="currentColor" stroke-width="2" fill="none"/></svg>
+    Descargar AutoSort
+  </a>
 </div></section>
 </main>
 
 <footer><div class="wrap">
   <span>AutoSort Gangsheet DTF</span>
-  <span><a href="https://github.com/eguiajosue/auto-sort">código en GitHub</a> · <a href="https://github.com/eguiajosue/auto-sort/issues">reportar un problema</a></span>
+  <span><a href="https://github.com/eguiajosue/auto-sort">Código en GitHub</a> · <a href="https://github.com/eguiajosue/auto-sort/issues">Reportar un problema</a></span>
 </div></footer>
 
 <script>
@@ -490,59 +436,50 @@ footer a{color:var(--ink-dim)}
   var NS = "http://www.w3.org/2000/svg";
   var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  // ---------- piezas del escenario ----------
-  // Flecha "<" de 110 x 56, centrada en el origen.
+  // ---------- geometría de la demostración ----------
+  // Flecha "<" de 110 x 56 centrada en el origen. 1 unidad = 0.4 cm (ilustrativo).
   var CHEV = "M-55 0 L55 -28 L29 0 L55 28 Z";
-  var GAP = 8, LEFT = 80, TOP = 90, W = 240, SCALE = 0.4; // 1 unidad = 0.4 cm (demostración)
-  var STEP = 41; // paso vertical entre flechas intercaladas (incluye la separación)
+  var CIRC = "M-25 0 A25 25 0 1 0 25 0 A25 25 0 1 0 -25 0 Z";
+  var BLOB = "M-25 -10 Q-25 -25 -10 -25 L25 -25 L25 10 Q25 25 10 25 L-25 25 Z";
+  var GAP = 8, LEFT = 80, TOP = 90, SCALE = 0.4, STEP = 41;
 
   var pieces = [
-    { kind: "chev", w: 110, h: 56, tag: "S" },
-    { kind: "chev", w: 110, h: 56, tag: "M" },
-    { kind: "chev", w: 110, h: 56, tag: "M" },
-    { kind: "chev", w: 110, h: 56, tag: "L" },
-    { kind: "chev", w: 110, h: 56, tag: "XL" },
-    { kind: "chev", w: 110, h: 56, tag: "XL" },
-    { kind: "circ", w: 50, h: 50, tag: "S" },
-    { kind: "circ", w: 50, h: 50, tag: "M" },
-    { kind: "blob", w: 50, h: 50, tag: "L" }
+    { kind: "chev", d: CHEV, w: 110, h: 56, tag: "S" },
+    { kind: "chev", d: CHEV, w: 110, h: 56, tag: "M" },
+    { kind: "chev", d: CHEV, w: 110, h: 56, tag: "M" },
+    { kind: "chev", d: CHEV, w: 110, h: 56, tag: "L" },
+    { kind: "chev", d: CHEV, w: 110, h: 56, tag: "XL" },
+    { kind: "chev", d: CHEV, w: 110, h: 56, tag: "XL" },
+    { kind: "circ", d: CIRC, w: 50, h: 50, tag: "S" },
+    { kind: "circ", d: CIRC, w: 50, h: 50, tag: "M" },
+    { kind: "blob", d: BLOB, w: 50, h: 50, tag: "L" }
   ];
 
-  // Posición inicial: regadas por el escenario.
   var scatter = [
     [110, 90, 0], [300, 70, 0], [250, 190, 0], [95, 250, 0], [290, 330, 0],
     [130, 410, 0], [215, 110, 0], [330, 440, 0], [60, 160, 0]
   ];
-
-  // Rectángulos: dos flechas por fila, círculos debajo.
-  var cx0 = LEFT + 4 + 55, cx1 = cx0 + 110 + GAP;
-  var r0 = TOP + 4 + 28;
+  var cx0 = LEFT + 4 + 55, cx1 = cx0 + 110 + GAP, r0 = TOP + 4 + 28;
   var rect = [
     [cx0, r0, 0], [cx0, r0 + 64, 0], [cx0, r0 + 128, 0],
     [cx1, r0, 0], [cx1, r0 + 64, 0], [cx1, r0 + 128, 0],
-    [LEFT + 29, r0 + 189, 0], [LEFT + 29 + 58, r0 + 189, 0], [LEFT + 29 + 116, r0 + 189, 0]
+    [LEFT + 29, r0 + 189, 0], [LEFT + 87, r0 + 189, 0], [LEFT + 145, r0 + 189, 0]
   ];
   var rectLen = 4 + 3 * 64 + 50 + 4;
-
-  // Forma real: las flechas se intercalan girando 180° (paso de 37).
   var c0 = r0 + 2 * STEP + 28 + GAP + 25;
   var shape = [
     [cx0, r0, 0], [cx0, r0 + STEP, 180], [cx0, r0 + 2 * STEP, 0],
     [cx1, r0, 0], [cx1, r0 + STEP, 180], [cx1, r0 + 2 * STEP, 0],
-    [LEFT + 29, c0, 0], [LEFT + 29 + 58, c0, 0], [LEFT + 29 + 116, c0, 0]
+    [LEFT + 29, c0, 0], [LEFT + 87, c0, 0], [LEFT + 145, c0, 0]
   ];
   var shapeLen = c0 + 25 + 4 - TOP;
 
-  // Coloca hoja, regla y rótulo según TOP.
-  document.getElementById("sheet").setAttribute("y", TOP);
-  document.getElementById("ruler").setAttribute("y1", TOP);
-  document.querySelector("#stage .cap").setAttribute("y", TOP - 10);
-  var save = document.getElementById("save");
-  save.textContent = "−" + Math.round((1 - shapeLen / rectLen) * 100) + " % de película";
-
   var layouts = [scatter, scatter, rect, shape, shape, shape];
   var sheetLen = [0, 0, rectLen, shapeLen, shapeLen, shapeLen];
-  var titles = ["ENTRADA", "MEDICIÓN", "RECTÁNGULOS", "FORMA REAL", "TALLAS", "SALIDA"];
+  var titles = ["entrada", "medición", "rectángulos", "forma real", "tallas", "salida"];
+
+  document.getElementById("save").textContent =
+    "−" + Math.round((1 - shapeLen / rectLen) * 100) + " % de película en esta hoja";
 
   var root = document.getElementById("pieces");
   function el(name, attrs, parent) {
@@ -554,27 +491,22 @@ footer a{color:var(--ink-dim)}
 
   pieces.forEach(function (p, i) {
     var g = el("g", { "class": "piece " + p.kind }, root);
-    var d;
-    if (p.kind === "chev") d = CHEV;
-    else if (p.kind === "circ") d = "M-25 0 A25 25 0 1 0 25 0 A25 25 0 1 0 -25 0 Z";
-    else d = "M-25 -10 Q-25 -25 -10 -25 L25 -25 L25 10 Q25 25 10 25 L-25 25 Z";
-    el("path", { "class": "halo", d: d }, g);
+    el("path", { "class": "halo", d: p.d }, g);
     el("rect", { "class": "bbox", x: -p.w / 2 - 2, y: -p.h / 2 - 2, width: p.w + 4, height: p.h + 4 }, g);
-    el("path", { "class": "shape", d: d }, g);
-    el("path", { "class": "cells", d: d, fill: "url(#cellp)" }, g);
-    // etiqueta: en el hueco de la flecha o al centro de las otras formas
-    var tx = p.kind === "chev" ? 40 : 0;
-    var tg = el("g", { transform: "translate(" + tx + " 0)" }, g);
-    var tin = el("g", {}, tg); // contragiro para que el texto no quede de cabeza
+    el("path", { "class": "shape", d: p.d }, g);
+    el("path", { "class": "cells", d: p.d, fill: "url(#cellp)" }, g);
+    // línea de corte un poco por fuera de la silueta
+    el("path", { "class": "cutline", d: p.d, transform: "scale(" + ((p.w + 7) / p.w) + " " + ((p.h + 7) / p.h) + ")" }, g);
+    var tg = el("g", { transform: "translate(" + (p.kind === "chev" ? 40 : 0) + " 0)" }, g);
+    var tin = el("g", {}, tg); // contragiro: el texto nunca queda de cabeza
     el("rect", { "class": "tagbg", x: -11, y: -7, width: 22, height: 14, rx: 2 }, tin);
-    var t = el("text", { "class": "tag", x: 0, y: 3.5, "text-anchor": "middle" }, tin);
-    t.textContent = p.tag;
+    el("text", { "class": "tag", x: 0, y: 3.5, "text-anchor": "middle" }, tin).textContent = p.tag;
     p.g = g;
     p.tagg = tin;
-    g.style.transitionDelay = (i * 45) + "ms";
+    g.style.transitionDelay = Math.min(i * 40, 240) + "ms";
   });
 
-  // ---------- animación de números (largo de la hoja) ----------
+  // ---------- largo de la hoja (regla y contador) ----------
   var sheet = document.getElementById("sheet"), ruler = document.getElementById("ruler");
   var rtext = document.getElementById("rtext"), lenOut = document.getElementById("len");
   var curLen = 0, anim = null;
@@ -583,18 +515,18 @@ footer a{color:var(--ink-dim)}
     sheet.style.opacity = v > 1 ? 1 : 0;
     ruler.setAttribute("y2", TOP + v);
     rtext.setAttribute("y", TOP + v / 2 + 4);
-    var cm = v * SCALE;
-    rtext.textContent = v > 1 ? cm.toFixed(1) + " cm" : "";
-    lenOut.textContent = v > 1 ? cm.toFixed(1) + " cm" : "—";
+    var txt = v > 1 ? (v * SCALE).toFixed(1) + " cm" : "";
+    rtext.textContent = txt;
+    lenOut.textContent = txt || "—";
   }
   function tweenLen(to) {
     if (anim) cancelAnimationFrame(anim);
     if (reduce) { curLen = to; drawLen(to); return; }
-    var from = curLen, t0 = null, dur = 1100;
+    var from = curLen, t0 = null, dur = 900;
     function frame(t) {
       if (t0 === null) t0 = t;
       var k = Math.min(1, (t - t0) / dur);
-      var e = k < .5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
+      var e = 1 - Math.pow(1 - k, 4); // desaceleración exponencial
       curLen = from + (to - from) * e;
       drawLen(curLen);
       if (k < 1) anim = requestAnimationFrame(frame);
@@ -604,8 +536,9 @@ footer a{color:var(--ink-dim)}
 
   // ---------- pasos ----------
   var stage = document.getElementById("stage");
-  var dots = document.querySelectorAll("#dots i");
+  var ticks = document.querySelectorAll("#ticks i");
   var title = document.getElementById("stageTitle");
+  var steps = document.querySelectorAll(".step");
   var current = -1;
   function go(step) {
     if (step === current) return;
@@ -615,62 +548,58 @@ footer a{color:var(--ink-dim)}
     pieces.forEach(function (p, i) {
       var q = lay[i];
       p.g.style.transform = "translate(" + q[0] + "px," + q[1] + "px) rotate(" + q[2] + "deg)";
-      // la etiqueta no gira de cabeza: compensa el giro de la pieza
       p.tagg.setAttribute("transform", "rotate(" + (-q[2]) + ")");
     });
     tweenLen(sheetLen[step]);
-    for (var d = 0; d < dots.length; d++) dots[d].className = d <= step ? "on" : "";
-    title.textContent = ("0" + (step + 1)) + " / " + titles[step];
+    for (var d = 0; d < ticks.length; d++) ticks[d].className = d <= step ? "on" : "";
+    title.textContent = (step + 1) + "/6 · " + titles[step];
+    for (var k = 0; k < steps.length; k++) steps[k].classList.toggle("on", k === step);
   }
   go(0);
 
-  var steps = document.querySelectorAll(".step");
-  function mark(i) {
-    for (var k = 0; k < steps.length; k++) steps[k].classList.toggle("on", k === i);
-  }
   var mobile = window.matchMedia("(max-width:900px)").matches;
   if (mobile) {
-    // Celular: la animación avanza sola; tocar un paso salta a él.
-    var timer = null;
-    var play = function (from) {
-      if (timer) clearInterval(timer);
-      var i = from;
-      mark(i); go(i);
-      if (reduce) return;
-      timer = setInterval(function () { i = (i + 1) % steps.length; mark(i); go(i); }, 3200);
+    // Celular: la demostración avanza sola mientras está en pantalla; tocar
+    // un paso salta a él.
+    var timer = null, visible = false, at = 0;
+    var tick = function () { at = (at + 1) % 6; go(at); };
+    var sync = function () {
+      if (timer) { clearInterval(timer); timer = null; }
+      if (visible && !document.hidden && !reduce) timer = setInterval(tick, 3200);
     };
-    steps.forEach(function (st, i) { st.addEventListener("click", function () { play(i); }); });
-    play(0);
-  }
-  if ("IntersectionObserver" in window) {
-    var io = new IntersectionObserver(function (entries) {
-      entries.forEach(function (en) {
-        if (en.isIntersecting) {
-          for (var i = 0; i < steps.length; i++) steps[i].classList.remove("on");
-          en.target.classList.add("on");
-          go(+en.target.getAttribute("data-step"));
-        }
-      });
-    }, {
-      rootMargin: "-45% 0px -45% 0px"
+    steps.forEach(function (st) {
+      st.addEventListener("click", function () { at = +st.getAttribute("data-step"); go(at); sync(); });
     });
-    if (!mobile) steps.forEach(function (s) { io.observe(s); });
-
-    var ro = new IntersectionObserver(function (entries) {
-      entries.forEach(function (en) { if (en.isIntersecting) { en.target.classList.add("in"); ro.unobserve(en.target); } });
-    }, { threshold: .12 });
-    document.querySelectorAll(".rise").forEach(function (r) { ro.observe(r); });
-  } else {
-    steps.forEach(function (s) { s.classList.add("on"); });
-    document.querySelectorAll(".rise").forEach(function (r) { r.classList.add("in"); });
+    document.addEventListener("visibilitychange", sync);
+    if ("IntersectionObserver" in window) {
+      new IntersectionObserver(function (en) { visible = en[0].isIntersecting; sync(); }, { threshold: .3 })
+        .observe(document.querySelector(".stage"));
+    }
+  } else if ("IntersectionObserver" in window) {
+    // Escritorio: el paso que cruza el centro de la ventana manda.
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) { if (en.isIntersecting) go(+en.target.getAttribute("data-step")); });
+    }, { rootMargin: "-45% 0px -45% 0px" });
+    steps.forEach(function (s) { io.observe(s); });
   }
 
-  // ---------- pestañas de opciones ----------
-  var tabs = document.querySelectorAll(".tabs button");
-  tabs.forEach(function (b) {
-    b.addEventListener("click", function () {
-      tabs.forEach(function (x) { x.setAttribute("aria-selected", x === b ? "true" : "false"); });
-      document.querySelectorAll(".panel").forEach(function (p) { p.classList.toggle("on", p.id === b.getAttribute("data-tab")); });
+  // ---------- pestañas (con flechas del teclado) ----------
+  var tabs = Array.prototype.slice.call(document.querySelectorAll(".tabs button"));
+  function select(b) {
+    tabs.forEach(function (x) {
+      var on = x === b;
+      x.setAttribute("aria-selected", on ? "true" : "false");
+      x.tabIndex = on ? 0 : -1;
+      document.getElementById(x.getAttribute("data-tab")).classList.toggle("on", on);
+    });
+  }
+  tabs.forEach(function (b, i) {
+    b.addEventListener("click", function () { select(b); });
+    b.addEventListener("keydown", function (e) {
+      var j = e.key === "ArrowRight" ? i + 1 : e.key === "ArrowLeft" ? i - 1 : null;
+      if (j === null) return;
+      var t = tabs[(j + tabs.length) % tabs.length];
+      select(t); t.focus(); e.preventDefault();
     });
   });
 })();
