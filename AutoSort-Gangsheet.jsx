@@ -636,58 +636,116 @@
 
         function u32(b, p) { return ((b[p] << 24) >>> 0) + (b[p + 1] << 16) + (b[p + 2] << 8) + b[p + 3]; }
 
-        // Devuelve {width, height, alpha: [0..255]} — solo el canal de opacidad.
+        // Decodifica cualquier PNG estándar: profundidad 1, 2, 4, 8 o 16 bits,
+        // tipos de color gris, RGB, paleta, gris+alfa y RGBA, entrelazado Adam7
+        // y transparencia por tRNS. Devuelve {width, height, r, g, b, alpha}
+        // con valores de 0 a 255 por píxel.
         function decodePng(data) {
-            var b = toBytes(data), sig = [137, 80, 78, 71, 13, 10, 26, 10], i, p = 8;
-            for (i = 0; i < 8; i++) if (b[i] !== sig[i]) throw new Error("No es un PNG");
-            var w = 0, h = 0, depth = 0, ctype = 0, interlace = 0, idat = [], trns = null, len, type;
-            while (p + 8 <= b.length) {
-                len = u32(b, p);
-                type = String.fromCharCode(b[p + 4], b[p + 5], b[p + 6], b[p + 7]);
+            var bytes = toBytes(data), sig = [137, 80, 78, 71, 13, 10, 26, 10], i, p = 8;
+            for (i = 0; i < 8; i++) if (bytes[i] !== sig[i]) throw new Error("No es un PNG");
+            var w = 0, h = 0, depth = 0, ctype = 0, interlace = 0, idat = [], trns = null, plte = null, len, type;
+            while (p + 8 <= bytes.length) {
+                len = u32(bytes, p);
+                type = String.fromCharCode(bytes[p + 4], bytes[p + 5], bytes[p + 6], bytes[p + 7]);
                 if (type === "IHDR") {
-                    w = u32(b, p + 8); h = u32(b, p + 12);
-                    depth = b[p + 16]; ctype = b[p + 17]; interlace = b[p + 20];
+                    w = u32(bytes, p + 8); h = u32(bytes, p + 12);
+                    depth = bytes[p + 16]; ctype = bytes[p + 17]; interlace = bytes[p + 20];
+                } else if (type === "PLTE") {
+                    plte = bytes.slice(p + 8, p + 8 + len);
                 } else if (type === "tRNS") {
-                    trns = b.slice(p + 8, p + 8 + len);
+                    trns = bytes.slice(p + 8, p + 8 + len);
                 } else if (type === "IDAT") {
-                    for (i = 0; i < len; i++) idat.push(b[p + 8 + i]);
+                    for (i = 0; i < len; i++) idat.push(bytes[p + 8 + i]);
                 } else if (type === "IEND") {
                     break;
                 }
                 p += 12 + len;
             }
             if (!w || !h) throw new Error("PNG sin encabezado");
-            if (depth !== 8 || interlace) throw new Error("PNG no soportado (profundidad " + depth + ")");
             var ch = [1, 0, 3, 1, 2, 0, 4][ctype]; // canales por tipo de color
-            if (!ch) throw new Error("PNG: tipo de color " + ctype);
-            var raw = inflate(idat), stride = w * ch, prev = zeros(stride), cur, f, x, a, bb, c, pa, pb, pc, pos = 0;
-            var alpha = [];
-            for (var y = 0; y < h; y++) {
-                f = raw[pos++];
-                cur = [];
-                for (x = 0; x < stride; x++) {
-                    var v = raw[pos++] | 0;
-                    a = x >= ch ? cur[x - ch] : 0;
-                    bb = prev[x];
-                    c = x >= ch ? prev[x - ch] : 0;
-                    if (f === 1) v += a;
-                    else if (f === 2) v += bb;
-                    else if (f === 3) v += (a + bb) >> 1;
-                    else if (f === 4) {
-                        pa = Math.abs(bb - c); pb = Math.abs(a - c); pc = Math.abs(a + bb - 2 * c);
-                        v += (pa <= pb && pa <= pc) ? a : (pb <= pc ? bb : c);
-                    }
-                    cur.push(v & 0xff);
-                }
-                for (x = 0; x < w; x++) {
-                    if (ctype === 6) alpha.push(cur[x * 4 + 3]);
-                    else if (ctype === 4) alpha.push(cur[x * 2 + 1]);
-                    else if (ctype === 3) alpha.push(trns && cur[x] < trns.length ? trns[cur[x]] : 255);
-                    else alpha.push(255);
-                }
-                prev = cur;
+            if (!ch || (depth !== 1 && depth !== 2 && depth !== 4 && depth !== 8 && depth !== 16)) {
+                throw new Error("PNG no soportado (tipo " + ctype + ", " + depth + " bits)");
             }
-            return { width: w, height: h, alpha: alpha };
+            if (ctype === 3 && !plte) throw new Error("PNG con paleta sin PLTE");
+            var bits = ch * depth, bpp = Math.max(1, Math.ceil(bits / 8));
+            var maxv = (1 << Math.min(depth, 8)) - 1; // para escalar 1/2/4 bits a 0..255
+            var raw = inflate(idat), pos = 0;
+            var R = zeros(w * h), G = zeros(w * h), B = zeros(w * h), A = zeros(w * h);
+            // Clave de transparencia (tRNS) para gris y RGB, en 16 bits.
+            var key = null;
+            if (trns && ctype === 0 && trns.length >= 2) key = [(trns[0] << 8) | trns[1]];
+            if (trns && ctype === 2 && trns.length >= 6) key = [(trns[0] << 8) | trns[1], (trns[2] << 8) | trns[3], (trns[4] << 8) | trns[5]];
+
+            // Lee la muestra n (0 = primera) del píxel x de la fila; valor crudo.
+            function sample(row, x, n) {
+                var bitPos, byteIdx, shift;
+                if (depth === 8) return row[x * ch + n];
+                if (depth === 16) return (row[(x * ch + n) * 2] << 8) | row[(x * ch + n) * 2 + 1];
+                bitPos = (x * ch + n) * depth;
+                byteIdx = bitPos >> 3;
+                shift = 8 - depth - (bitPos & 7);
+                return (row[byteIdx] >> shift) & ((1 << depth) - 1);
+            }
+            function to8(v) {
+                if (depth === 16) return v >> 8;
+                if (depth === 8) return v;
+                return Math.round(v * 255 / maxv);
+            }
+            function setPixel(row, x, px) {
+                var s0 = sample(row, x, 0), k, r, g, bl, a = 255;
+                if (ctype === 3) {
+                    k = s0 * 3;
+                    r = plte[k] | 0; g = plte[k + 1] | 0; bl = plte[k + 2] | 0;
+                    if (trns && s0 < trns.length) a = trns[s0];
+                } else if (ctype === 0 || ctype === 4) {
+                    r = g = bl = to8(s0);
+                    if (ctype === 4) a = to8(sample(row, x, 1));
+                    else if (key && (depth === 16 ? s0 : s0) === key[0]) a = 0;
+                } else {
+                    var s1 = sample(row, x, 1), s2 = sample(row, x, 2);
+                    r = to8(s0); g = to8(s1); bl = to8(s2);
+                    if (ctype === 6) a = to8(sample(row, x, 3));
+                    else if (key && s0 === key[0] && s1 === key[1] && s2 === key[2]) a = 0;
+                }
+                R[px] = r; G[px] = g; B[px] = bl; A[px] = a;
+            }
+            // Decodifica una imagen (o una pasada de Adam7) de pw x ph.
+            function pass(pw, ph, x0, y0, dx, dy) {
+                var stride = Math.ceil(pw * bits / 8), prev = zeros(stride), cur, f, x, y, v, a, bb, c, pa, pb, pc;
+                for (y = 0; y < ph; y++) {
+                    f = raw[pos];
+                    pos += 1;
+                    cur = [];
+                    for (x = 0; x < stride; x++) {
+                        v = raw[pos] | 0;
+                        pos += 1;
+                        a = x >= bpp ? cur[x - bpp] : 0;
+                        bb = prev[x];
+                        c = x >= bpp ? prev[x - bpp] : 0;
+                        if (f === 1) v += a;
+                        else if (f === 2) v += bb;
+                        else if (f === 3) v += (a + bb) >> 1;
+                        else if (f === 4) {
+                            pa = Math.abs(bb - c); pb = Math.abs(a - c); pc = Math.abs(a + bb - 2 * c);
+                            v += (pa <= pb && pa <= pc) ? a : (pb <= pc ? bb : c);
+                        }
+                        cur.push(v & 0xff);
+                    }
+                    for (x = 0; x < pw; x++) setPixel(cur, x, (y0 + y * dy) * w + x0 + x * dx);
+                    prev = cur;
+                }
+            }
+            if (!interlace) {
+                pass(w, h, 0, 0, 1, 1);
+            } else {
+                var ad = [[0, 0, 8, 8], [4, 0, 8, 8], [0, 4, 4, 8], [2, 0, 4, 4], [0, 2, 2, 4], [1, 0, 2, 2], [0, 1, 1, 2]], q, pw, ph;
+                for (q = 0; q < 7; q++) {
+                    pw = Math.ceil((w - ad[q][0]) / ad[q][2]);
+                    ph = Math.ceil((h - ad[q][1]) / ad[q][3]);
+                    if (pw > 0 && ph > 0) pass(pw, ph, ad[q][0], ad[q][1], ad[q][2], ad[q][3]);
+                }
+            }
+            return { width: w, height: h, r: R, g: G, b: B, alpha: A };
         }
 
         // ---------------------------- Máscaras ---------------------------
@@ -714,6 +772,64 @@
                 }
             }
             return m;
+        }
+
+        // Silueta de una captura. Si la imagen trae transparencia se usa el
+        // alfa. Si es totalmente opaca (p. ej. un PNG/JPG con fondo blanco),
+        // se detecta el color de fondo en el borde y se quita.
+        // Devuelve {mask, mode: "alpha" | "fondo" | "rect" | "vacia"}.
+        function maskFromImage(img, w, h, threshold, tol) {
+            var W = img.width, H = img.height, i, x, y, idx;
+            var x0 = W, y0 = H, x1 = -1, y1 = -1;
+            // Recuadro de lo que se dibujó (la captura puede ser un poco más
+            // grande que la imagen y dejar un margen transparente alrededor).
+            for (y = 0; y < H; y++) {
+                for (x = 0; x < W; x++) {
+                    if (img.alpha[y * W + x] > threshold) {
+                        if (x < x0) x0 = x;
+                        if (x > x1) x1 = x;
+                        if (y < y0) y0 = y;
+                        if (y > y1) y1 = y;
+                    }
+                }
+            }
+            if (x1 < 0) return { mask: emptyMask(w, h), mode: "vacia" };
+            var inside = (x1 - x0 + 1) * (y1 - y0 + 1), clear = 0;
+            for (y = y0; y <= y1; y++) for (x = x0; x <= x1; x++) if (img.alpha[y * W + x] <= threshold) clear += 1;
+            // Es "opaca" solo si lo dibujado llena toda la captura (salvo el
+            // margen del redondeo a celdas, de hasta 3 píxeles) sin huecos. Un
+            // PNG con transparencia alrededor conserva su forma tal cual.
+            var fills = x0 <= 1 && y0 <= 1 && x1 >= W - 4 && y1 >= H - 4;
+            if (!fills || clear > inside * 0.002 || !img.r) return { mask: maskFromAlpha(img, w, h, threshold), mode: "alpha" };
+
+            // Imagen opaca: el fondo es el color más repetido en su borde.
+            tol = tol || 28;
+            var votes = {}, best = null, key, border = [];
+            for (x = x0; x <= x1; x++) { border.push(y0 * W + x); border.push(y1 * W + x); }
+            for (y = y0 + 1; y < y1; y++) { border.push(y * W + x0); border.push(y * W + x1); }
+            for (i = 0; i < border.length; i++) {
+                key = (img.r[border[i]] >> 4) + "," + (img.g[border[i]] >> 4) + "," + (img.b[border[i]] >> 4);
+                votes[key] = (votes[key] || 0) + 1;
+                if (!best || votes[key] > votes[best]) best = key;
+            }
+            // Solo si el borde es mayormente de un color (si no, es una foto rectangular).
+            if (votes[best] < border.length * 0.6) return { mask: maskFromAlpha(img, w, h, threshold), mode: "rect" };
+            var ref = null;
+            for (i = 0; i < border.length && !ref; i++) {
+                key = (img.r[border[i]] >> 4) + "," + (img.g[border[i]] >> 4) + "," + (img.b[border[i]] >> 4);
+                if (key === best) ref = [img.r[border[i]], img.g[border[i]], img.b[border[i]]];
+            }
+            var keyed = { width: W, height: H, alpha: zeros(W * H) };
+            for (y = y0; y <= y1; y++) {
+                for (x = x0; x <= x1; x++) {
+                    idx = y * W + x;
+                    if (Math.abs(img.r[idx] - ref[0]) > tol || Math.abs(img.g[idx] - ref[1]) > tol ||
+                        Math.abs(img.b[idx] - ref[2]) > tol) keyed.alpha[idx] = 255;
+                }
+            }
+            var m = maskFromAlpha(keyed, w, h, 0);
+            if (!maskArea(m)) return { mask: maskFromAlpha(img, w, h, threshold), mode: "rect" };
+            return { mask: m, mode: "fondo" };
         }
 
         function maskArea(m) {
@@ -1065,7 +1181,7 @@
         }
 
         return {
-            inflate: inflate, decodePng: decodePng, emptyMask: emptyMask, fullMask: fullMask,
+            inflate: inflate, decodePng: decodePng, emptyMask: emptyMask, fullMask: fullMask, maskFromImage: maskFromImage,
             maskFromAlpha: maskFromAlpha, maskArea: maskArea, blit: blit, rotateMask: rotateMask,
             rowRuns: rowRuns, mergeRuns: mergeRuns, kernel: kernel, dilateRows: dilateRows,
             prepareShape: prepareShape, Grid: Grid, pack: pack, packSheets: packSheets, rotVec: rotVec,
@@ -2220,12 +2336,70 @@
     }
 
     // --------------------------- Forma real -----------------------------
-    // Captura la silueta de cada diseño (PNG transparente de baja resolución
-    // en un documento temporal) y la reduce a una máscara de celdas cellPt.
-    // Devuelve cuántos diseños no se pudieron leer (usan su rectángulo).
+    // Captura la silueta de cada diseño como una imagen pequeña con
+    // transparencia, en un documento temporal, y la reduce a una máscara de
+    // celdas cellPt. Prueba varios métodos porque Illustrator no siempre
+    // dibuja igual las imágenes vinculadas:
+    //   1) imageCapture con las imágenes de la copia incrustadas;
+    //   2) exportar el documento temporal como PNG24 (Guardar para Web).
+    // Si la imagen no tiene transparencia, se quita su fondo de color sólido.
+    // Devuelve {fails: [{name, reason}], keyed: n} (keyed = fondos quitados).
+
+    // Incrusta las imágenes vinculadas dentro de una copia (solo en el
+    // documento temporal: el original no cambia).
+    function embedLinked(item) {
+        var i;
+        try {
+            if (item.typename === "PlacedItem") { item.embed(); return; }
+            if (item.typename === "GroupItem") {
+                for (i = item.pageItems.length - 1; i >= 0; i--) embedLinked(item.pageItems[i]);
+            }
+        } catch (e) { }
+    }
+
+    function readPng(file) {
+        var data = null;
+        file.encoding = "BINARY";
+        if (file.open("r")) { data = file.read(); file.close(); }
+        if (!data) throw new Error("la captura no generó imagen");
+        return Nest.decodePng(data);
+    }
+
     function captureMasks(list, cellPt, onProgress) {
-        var tmp = null, fails = 0, i, piece, dup, b, W, H, io, data, img;
+        var tmp = null, fails = [], keyed = 0, i, piece, dup, bb, W, H, rect, res, why;
         var file = File(Folder.temp + "/autosort_forma.png");
+        var ppi = 2 * 72 / cellPt; // 2 píxeles por celda
+
+        // Método 1: captura directa.
+        function byCapture() {
+            var io = new ImageCaptureOptions();
+            io.resolution = ppi;
+            io.transparency = true;
+            io.antiAliasing = true;
+            if (file.exists) file.remove();
+            tmp.imageCapture(file, rect, io);
+            return readPng(file);
+        }
+        // Método 2: exportar PNG24 de la mesa de trabajo del documento temporal.
+        function byExport() {
+            var o = new ExportOptionsPNG24();
+            o.transparency = true;
+            o.antiAliasing = true;
+            o.artBoardClipping = true;
+            o.horizontalScale = Math.max(1, ppi / 72 * 100);
+            o.verticalScale = o.horizontalScale;
+            tmp.artboards[0].artboardRect = rect;
+            if (file.exists) file.remove();
+            tmp.exportFile(file, ExportType.PNG24, o);
+            return readPng(file);
+        }
+        function attempt(fn) {
+            var img = fn();
+            var r = Nest.maskFromImage(img, W, H, 2);
+            if (r.mode === "vacia") throw new Error("la captura salió vacía");
+            return r;
+        }
+
         try { tmp = app.documents.add(doc.documentColorSpace); } catch (e) { tmp = null; }
         for (i = 0; i < list.length; i++) {
             piece = list[i];
@@ -2233,37 +2407,39 @@
             H = Math.max(1, Math.ceil(piece.h / cellPt - 1e-6));
             piece.mask = null;
             dup = null;
+            res = null;
+            why = tmp ? "" : "no se pudo crear el documento temporal";
             if (tmp) {
                 try {
                     dup = piece.item.duplicate(tmp.layers[0], ElementPlacement.PLACEATEND);
                     dup.hidden = false;
-                    b = getBounds(dup);
-                    io = new ImageCaptureOptions();
-                    io.resolution = 2 * 72 / cellPt; // 2 píxeles por celda
-                    io.transparency = true;
-                    io.antiAliasing = true;
-                    if (file.exists) file.remove();
-                    tmp.imageCapture(file, [b[0], b[1], b[0] + W * cellPt, b[1] - H * cellPt], io);
-                    file.encoding = "BINARY";
-                    data = null;
-                    if (file.open("r")) { data = file.read(); file.close(); }
-                    if (data) {
-                        img = Nest.decodePng(data);
-                        piece.mask = Nest.maskFromAlpha(img, W, H, 2);
-                        if (!Nest.maskArea(piece.mask)) piece.mask = null;
+                    embedLinked(dup);
+                    bb = getBounds(dup);
+                    rect = [bb[0], bb[1], bb[0] + W * cellPt, bb[1] - H * cellPt];
+                    try {
+                        res = attempt(byCapture);
+                    } catch (e1) {
+                        why = e1.message;
+                        try { res = attempt(byExport); } catch (e2) { why += " / " + e2.message; }
                     }
-                } catch (e2) {
-                    piece.mask = null;
+                } catch (e3) {
+                    why = e3.message;
                 }
-                try { if (dup) dup.remove(); } catch (e3) { }
-                try { if (file.exists) file.remove(); } catch (e4) { }
+                try { if (dup) dup.remove(); } catch (e4) { }
+                try { if (file.exists) file.remove(); } catch (e5) { }
             }
-            if (!piece.mask) { piece.mask = Nest.fullMask(W, H); fails++; }
+            if (res) {
+                piece.mask = res.mask;
+                if (res.mode === "fondo") keyed += 1;
+            } else {
+                piece.mask = Nest.fullMask(W, H);
+                fails.push({ name: piece.name, reason: why || "motivo desconocido" });
+            }
             if (onProgress) onProgress(i + 1, list.length, "Leyendo la silueta de los diseños");
         }
-        if (tmp) { try { tmp.close(SaveOptions.DONOTSAVECHANGES); } catch (e5) { } }
-        try { doc.activate(); } catch (e6) { }
-        return fails;
+        if (tmp) { try { tmp.close(SaveOptions.DONOTSAVECHANGES); } catch (e6) { } }
+        try { doc.activate(); } catch (e7) { }
+        return { fails: fails, keyed: keyed };
     }
 
     // Forma "diseño + etiqueta debajo" como máscara, con los centros del
@@ -2661,10 +2837,10 @@
         obstaclesEvery: orderObs
     };
     // sheets: [{placements, height}] — una entrada por hoja.
-    var sheets = [], res, cellPt = SHAPE_CELLS_MM[opts.shapeCell] * UNITS.mm, shapeGeo = {}, shapeFails = 0;
+    var sheets = [], res, cellPt = SHAPE_CELLS_MM[opts.shapeCell] * UNITS.mm, shapeGeo = {}, shapeInfo = { fails: [], keyed: 0 };
     try {
         if (shapeMode) {
-            shapeFails = captureMasks(pieces, cellPt, packOpts.onProgress);
+            shapeInfo = captureMasks(pieces, cellPt, packOpts.onProgress);
             var ker = Nest.kernel(opts.gap, cellPt), nestItems = [], key;
             for (i = 0; i < copies.length; i++) {
                 key = copies[i].piece.idx + "|" + copies[i].label;
@@ -3006,7 +3182,13 @@
     }
     if (shapeMode) {
         msg += "\nMétodo: forma real (precisión " + SHAPE_CELLS_MM[opts.shapeCell] + " mm)";
-        if (shapeFails) msg += "\n" + shapeFails + " diseño(s) sin silueta legible: se usó su rectángulo.";
+        if (shapeInfo.keyed) msg += "\n" + shapeInfo.keyed + " diseño(s) sin transparencia: se quitó su fondo de color sólido.";
+        if (shapeInfo.fails.length) {
+            msg += "\n" + shapeInfo.fails.length + " diseño(s) sin silueta legible: se usó su rectángulo.";
+            for (i = 0; i < Math.min(3, shapeInfo.fails.length); i++) {
+                msg += "\n   \u2022 " + shapeInfo.fails[i].name + ": " + shapeInfo.fails[i].reason;
+            }
+        }
     }
     if (fillCount) msg += "\nRelleno: " + fillCount + " copia(s) extra de " + fillRow.piece.name + (fillRow.label ? " \u00B7 " + fillRow.label : "") + ".";
     if (fillRow && !fillCount) msg += "\nRelleno: no quedó espacio para copias extra.";

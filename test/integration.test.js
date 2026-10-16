@@ -2,7 +2,7 @@
 // Uso: node test/integration.test.js
 "use strict";
 const assert = require("assert");
-const { createDocument, makeLayer, addPath, runScript, insideCanvas, containsPoint, memFiles } = require("./illustrator-mock");
+const { createDocument, makeLayer, addPath, addPlaced, runScript, insideCanvas, containsPoint, memFiles } = require("./illustrator-mock");
 
 const MM = 2.834645669;
 let passed = 0;
@@ -428,6 +428,64 @@ test("varias hojas: una etiqueta y un EPS por hoja", () => {
   assert.strictEqual(orders.length, n);
   const epsFiles = [...memFiles.keys()].filter((k) => k.endsWith(".eps"));
   assert.strictEqual(epsFiles.length, n);
+});
+
+// ------------------------------------- Forma real con imágenes (v1.1.1) ---
+function setupImage(opts) {
+  const doc = createDocument({ artboard: [0, 0, 595.28, -841.89] });
+  const layer = makeLayer(doc, "Capa 1");
+  doc.layers.push(layer);
+  const img = addPlaced(doc, layer, [100, -100, 100 + 100.48 * MM, -100 - 250.48 * MM], "scyke.png");
+  img._shape = chevronShape;
+  img._bg = !!(opts && opts.bg);
+  img.selected = true;
+  return { doc, img };
+}
+function runImage(doc, qty, extra) {
+  return runScript(Object.assign({
+    doc, onShow: (w, h) => { if (w.title === "AutoSort Gangsheet DTF") mainDialog(h, { qty, shape: true }); },
+  }, extra || {}));
+}
+
+test("forma real con imagen vinculada: se incrusta la copia y la silueta se lee", () => {
+  const { doc, img } = setupImage();
+  const { alerts } = runImage(doc, 6);
+  const msg = alerts[alerts.length - 1];
+  assert(!/sin silueta legible/.test(msg), msg);
+  assert.strictEqual(img.typename, "PlacedItem", "el original no se incrusta");
+  const ds = doc._items.filter((it) => !it._removed && it.typename === "PlacedItem");
+  assert.strictEqual(ds.length, 6);
+  assertShapesApart(doc, ds, 3);
+  // comparar con el mismo pedido acomodado por rectángulos
+  const r = setupImage();
+  runScript({ doc: r.doc, onShow: (w, h) => { if (w.title === "AutoSort Gangsheet DTF") mainDialog(h, { qty: 6 }); } });
+  const len = (d) => { const a = d.artboards[0].artboardRect; return (a[1] - a[3]) / MM / 10; };
+  console.log(`    imagen: forma real ${len(doc).toFixed(1)} cm vs rectángulos ${len(r.doc).toFixed(1)} cm`);
+  assert(len(doc) < len(r.doc) * 0.85, "la forma real debe ahorrar película");
+});
+
+test("forma real: si la captura falla, usa la exportación PNG24", () => {
+  const { doc } = setupImage();
+  const { alerts } = runImage(doc, 4, { captureThrows: true });
+  const msg = alerts[alerts.length - 1];
+  assert(!/sin silueta legible/.test(msg), msg);
+});
+
+test("forma real: imagen sin transparencia (fondo blanco) usa el contorno del diseño", () => {
+  const { doc } = setupImage({ bg: true });
+  const { alerts } = runImage(doc, 6);
+  const msg = alerts[alerts.length - 1];
+  assert(/se quitó su fondo de color sólido/.test(msg), msg);
+  assert(!/sin silueta legible/.test(msg), msg);
+});
+
+test("forma real: si nada funciona, dice el motivo", () => {
+  const { doc } = setupImage();
+  // ambos métodos fallan
+  const { alerts } = runImage(doc, 2, { captureThrows: true, exportThrows: true });
+  const msg = alerts[alerts.length - 1];
+  assert(/sin silueta legible/.test(msg), msg);
+  assert(/scyke\.png: imageCapture falló \/ exportFile falló/.test(msg), msg);
 });
 
 console.log(`\n${passed} pruebas de integración OK`);
