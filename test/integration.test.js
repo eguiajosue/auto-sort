@@ -88,7 +88,38 @@ test("85 copias en rollo de 580 mm: sube la mesa de trabajo para caber en el lie
   assert.strictEqual(ds.length, 85);
   ds.forEach((d) => assert(within(d.visibleBounds, ab), "pieza fuera de la hoja"));
   assertNoOverlap(ds, 3 * MM);
-  assert(/se subió/.test(msg), "debe avisar que subió la mesa");
+  assert(/se movió/.test(msg), "debe avisar que movió la mesa");
+});
+
+test("mesa de trabajo cerca del borde derecho del lienzo: mueve la hoja a la izquierda", () => {
+  // Como el caso real: textos anchos (~540 x 4 mm) y una hoja de 560 mm que
+  // no cabe a la derecha de la mesa actual.
+  const x0 = 7800;
+  const doc = createDocument({ artboard: [x0, 0, x0 + 300, -300] });
+  const layer = makeLayer(doc, "Capa 1");
+  doc.layers.push(layer);
+  for (let i = 0; i < 4; i++) {
+    addPath(doc, layer, [x0 + 5, -10 - i * 20, x0 + 5 + 540 * MM, -10 - i * 20 - 4 * MM], "Texto " + i).selected = true;
+  }
+  const { alerts } = runScript({ doc, onShow: (w, h) => { if (w.title === "AutoSort Gangsheet DTF") {
+    h.find("dropdownlist").selection = 0;
+    h.find("dropdownlist").onChange();
+    h.radio("Ancho fijo");
+    h.editAfter("Ancho de la hoja").text = "560";
+    h.editAfter("Entre elementos").text = "3";
+    h.editAfter("Margen al borde").text = "3";
+    h.click("Acomodar");
+  } } });
+  const msg = alerts[alerts.length - 1];
+  assert(/Piezas acomodadas: 4 de 4/.test(msg), msg);
+  const ab = doc.artboards[0].artboardRect;
+  assert(insideCanvas(ab));
+  assert(Math.abs(ab[2] - ab[0] - 560 * MM) < 0.01, "ancho de la hoja");
+  assert(ab[0] < x0, "la hoja se movió a la izquierda");
+  const ds = designs(doc);
+  ds.forEach((d) => assert(within(d.visibleBounds, ab), "pieza fuera de la hoja"));
+  assertNoOverlap(ds, 3 * MM);
+  assert(/se movió/.test(msg), msg);
 });
 
 test("200 copias sin 'Varias hojas': avisa y no modifica nada", () => {

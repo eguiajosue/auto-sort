@@ -2540,28 +2540,46 @@
 
     // ------------------------------ Lienzo ------------------------------
     // Coloca la mesa de trabajo con el tamaño w x h lo más cerca posible de su
-    // posición actual sin salirse del lienzo. Devuelve el nuevo borde superior
-    // o null. Deja la mesa con su rectángulo original.
+    // posición actual sin salirse del lienzo (se puede mover a la izquierda,
+    // derecha, arriba o abajo). Devuelve { left, top } o null. Deja la mesa con
+    // su rectángulo original.
     function fitOnCanvas(abObj, orig, w, h) {
-        var l = orig[0], t = orig[1], ok, bad, mid, n = 0, top = null;
-        function trySet(r) {
-            try { abObj.artboardRect = r; return true; } catch (e) { return false; }
+        var l = orig[0], t = orig[1], r = orig[2], b = orig[3], res = null, cl, ct, lim;
+        function trySet(rect) {
+            try { abObj.artboardRect = rect; return true; } catch (e) { return false; }
+        }
+        // Mueve un borde de la mesa original hacia "far" hasta el límite del lienzo.
+        function edge(side, far) {
+            var ok = orig[side], bad = far, mid, n = 0, rect;
+            while (Math.abs(bad - ok) > 0.5 && n < 50) {
+                n += 1;
+                mid = (ok + bad) / 2;
+                rect = [l, t, r, b];
+                rect[side] = mid;
+                if (trySet(rect)) ok = mid; else bad = mid;
+            }
+            return ok;
         }
         if (trySet([l, t, l + w, t - h])) {
-            top = t;
+            res = { left: l, top: t };
         } else if (trySet(orig)) {
-            // Busca el borde inferior del lienzo conservando el borde superior.
-            ok = orig[3];
-            bad = t - h;
-            while (ok - bad > 0.5 && n++ < 40) {
-                mid = (ok + bad) / 2;
-                if (trySet([orig[0], t, orig[2], mid])) ok = mid; else bad = mid;
+            lim = [Math.ceil(edge(0, r - 2 * MAX_CANVAS)), Math.floor(edge(1, b + 2 * MAX_CANVAS)),
+                   Math.floor(edge(2, l + 2 * MAX_CANVAS)), Math.ceil(edge(3, t - 2 * MAX_CANVAS))];
+            if (lim[2] - lim[0] >= w && lim[1] - lim[3] >= h) {
+                cl = Math.max(lim[0], Math.min(l, lim[2] - w));
+                ct = Math.min(lim[1], Math.max(t, lim[3] + h));
+                if (trySet([cl, ct, cl + w, ct - h])) {
+                    res = { left: cl, top: ct };
+                } else {
+                    // Último recurso: centrada en el lienzo.
+                    cl = Math.round((lim[0] + lim[2] - w) / 2);
+                    ct = Math.round((lim[1] + lim[3] + h) / 2);
+                    if (trySet([cl, ct, cl + w, ct - h])) res = { left: cl, top: ct };
+                }
             }
-            ok = Math.ceil(ok);
-            if (trySet([l, ok + h, l + w, ok])) top = ok + h;
         }
         trySet(orig);
-        return top;
+        return res;
     }
 
     // ------------------------------ Principal ---------------------------
@@ -2964,24 +2982,26 @@
             dropEmptyLabelLayer();
             return;
         }
-        var top = fitOnCanvas(artboard, ab, sheetW, sized ? maxH : Math.max(maxH, abH));
-        if (top === null) {
+        var fit = fitOnCanvas(artboard, ab, sheetW, sized ? maxH : Math.max(maxH, abH));
+        if (fit === null) {
             alert("No se pudo ubicar una hoja de " + sizeTxt + " dentro del lienzo de Illustrator.\n\n" +
                 "Prueba en un documento nuevo o con la mesa de trabajo más cerca del centro del lienzo. " +
                 "No se modificó nada.", SCRIPT_NAME);
             dropEmptyLabelLayer();
             return;
         }
-        originY = top;
-        if (fixedObs.length && Math.abs(originY - ab[1]) > 0.5) {
-            alert("La hoja no cabe hacia abajo en el lienzo y habría que subir la mesa de trabajo, pero hay objetos " +
-                "fijos (bloqueados) sobre ella que no se pueden mover.\n\nSube la mesa de trabajo y esos objetos, " +
-                "o usa \"Varias hojas\". No se modificó nada.", SCRIPT_NAME);
+        originX = fit.left;
+        originY = fit.top;
+        var moved = Math.abs(originX - ab[0]) > 0.5 || Math.abs(originY - ab[1]) > 0.5;
+        if (fixedObs.length && moved) {
+            alert("La hoja no cabe en el lienzo desde la posición actual y habría que mover la mesa de trabajo, " +
+                "pero hay objetos fijos (bloqueados) sobre ella que no se pueden mover.\n\nAcerca la mesa de " +
+                "trabajo y esos objetos al centro del lienzo, o usa \"Varias hojas\". No se modificó nada.", SCRIPT_NAME);
             dropEmptyLabelLayer();
             return;
         }
-        if (Math.abs(originY - ab[1]) > 0.5) {
-            lengthNote += "\n(La mesa de trabajo se subió para que la hoja quepa en el lienzo de Illustrator.)";
+        if (moved) {
+            lengthNote += "\n(La mesa de trabajo se movió para que la hoja quepa en el lienzo de Illustrator.)";
         }
     }
 
@@ -3004,7 +3024,7 @@
         if (sized) {
             artboard.artboardRect = [originX, originY, originX + sheetW, originY - sheets[0].h];
         } else if (opts.mode === "strip") {
-            artboard.artboardRect = [ab[0], originY, ab[2], originY - abH];
+            artboard.artboardRect = [originX, originY, originX + abW, originY - abH];
         }
     }
 
@@ -3126,7 +3146,7 @@
         if (!placedCount[i] && pieces[i].total > 0) leftovers.push(pieces[i]);
     }
     if (leftovers.length) {
-        var colX = Math.max(ab[2], lastRight) + 36, curY = originY, colW = 0, nb;
+        var colX = Math.max(originX + abW, lastRight) + 36, curY = originY, colW = 0, nb;
         for (i = 0; i < leftovers.length; i++) {
             piece = leftovers[i];
             nb = getBounds(piece.item);
