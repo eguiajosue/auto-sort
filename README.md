@@ -147,7 +147,7 @@ Con **Varias hojas** activado, lo que no cabe continúa en mesas de trabajo `Gan
 ## Método: rectángulos vs. forma real
 
 - **Rectángulos:** cada pieza ocupa su rectángulo envolvente. Es rápido. Aquí 180° ocupa lo mismo que 0°, así que solo gira 90° cuando ahorra espacio.
-- **Forma real:** captura la silueta de cada diseño (en un documento temporal que se cierra solo), la convierte en una cuadrícula y coloca cada copia lo más arriba posible probando 0°, 90°, 180° y 270°. Una celda cuenta como ocupada si *cualquier* parte del diseño la toca, así que la silueta nunca es más chica que el arte y la separación real es igual o mayor a la indicada. Si no puede leer la silueta de un diseño, usa su rectángulo y lo avisa.
+- **Forma real:** captura la silueta de cada diseño (en un documento temporal que se cierra solo), la convierte en una cuadrícula y coloca cada copia lo más arriba posible probando 0°, 90°, 180° y 270°. Una celda cuenta como ocupada si *cualquier* parte del diseño la toca, así que la silueta nunca es más chica que el arte y la separación real es igual o mayor a la indicada. Funciona con vectores, textos e **imágenes** (PNG/JPG vinculados o incrustados): las imágenes vinculadas se incrustan solo en una copia temporal para poder leerlas. Si una imagen **no tiene transparencia** (fondo blanco o de color sólido), detecta ese color en su borde y lo quita para obtener la silueta. Si aun así no puede leer la silueta de un diseño, usa su rectángulo y el resumen dice el motivo.
 
 En pruebas con una silueta de flecha de 10 × 25 cm, 20 copias en un rollo de 58 cm pasaron de **102.7 cm a 52.2 cm** de largo. El ahorro real depende de la forma de tus diseños, y con precisión de 1 mm el cálculo es notablemente más lento.
 
@@ -182,7 +182,7 @@ El PNG es una imagen: a 300 ppi se ve bien, pero los bordes de logos y textos de
 <details>
 <summary><b>Dice «sin silueta legible»</b></summary>
 
-El script no pudo capturar la silueta de ese diseño y usó su rectángulo. El resultado sigue siendo correcto, solo sin el ahorro de forma real para ese diseño.
+El script no pudo capturar la silueta de ese diseño y usó su rectángulo; debajo del aviso aparece el motivo. Para leer la silueta prueba dos métodos (captura directa y exportación PNG24) e incrusta las imágenes vinculadas en una copia temporal (tu archivo no cambia). Si te sigue saliendo, abre un issue con el motivo que muestra el resumen.
 
 </details>
 
