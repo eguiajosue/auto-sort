@@ -97,6 +97,103 @@ test("decodePng: RGBA y gris+alfa con los 5 filtros", () => {
   }
 });
 
+// Codificador PNG general para pruebas: cualquier tipo/profundidad, con
+// entrelazado Adam7 opcional. pixels(x, y) -> muestras crudas del píxel.
+function encodePngAny(w, h, { ctype, depth, interlace = 0, plte, trns }, pixels) {
+  const ch = [1, 0, 3, 1, 2, 0, 4][ctype], bits = ch * depth;
+  function scan(pw, ph, x0, y0, dx, dy) {
+    const out = [];
+    const stride = Math.ceil(pw * bits / 8);
+    for (let y = 0; y < ph; y++) {
+      const row = Buffer.alloc(stride);
+      for (let x = 0; x < pw; x++) {
+        const smp = pixels(x0 + x * dx, y0 + y * dy);
+        for (let n = 0; n < ch; n++) {
+          const v = smp[n];
+          if (depth === 8) row[x * ch + n] = v;
+          else if (depth === 16) { row[(x * ch + n) * 2] = v >> 8; row[(x * ch + n) * 2 + 1] = v & 255; }
+          else {
+            const bitPos = (x * ch + n) * depth, bi = bitPos >> 3, shift = 8 - depth - (bitPos & 7);
+            row[bi] |= (v & ((1 << depth) - 1)) << shift;
+          }
+        }
+      }
+      out.push(Buffer.from([0]), row);
+    }
+    return out;
+  }
+  let parts = [];
+  if (!interlace) parts = scan(w, h, 0, 0, 1, 1);
+  else {
+    for (const [x0, y0, dx, dy] of [[0, 0, 8, 8], [4, 0, 8, 8], [0, 4, 4, 8], [2, 0, 4, 4], [0, 2, 2, 4], [1, 0, 2, 2], [0, 1, 1, 2]]) {
+      const pw = Math.ceil((w - x0) / dx), ph = Math.ceil((h - y0) / dy);
+      if (pw > 0 && ph > 0) parts = parts.concat(scan(pw, ph, x0, y0, dx, dy));
+    }
+  }
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(w, 0); ihdr.writeUInt32BE(h, 4);
+  ihdr[8] = depth; ihdr[9] = ctype; ihdr[12] = interlace;
+  const chunks = [Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk("IHDR", ihdr)];
+  if (plte) chunks.push(chunk("PLTE", Buffer.from(plte)));
+  if (trns) chunks.push(chunk("tRNS", Buffer.from(trns)));
+  chunks.push(chunk("IDAT", zlib.deflateSync(Buffer.concat(parts))), chunk("IEND", Buffer.alloc(0)));
+  return Buffer.concat(chunks);
+}
+
+test("decodePng: 16 bits, entrelazado, paleta, gris de 1/2/4 bits y clave tRNS", () => {
+  const W = 23, H = 17, inside = (x, y) => (x - 11) ** 2 + (y - 8) ** 2 < 40;
+  const check = (img, name) => {
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      assert.strictEqual(img.alpha[y * W + x] > 0 ? 1 : 0, inside(x, y) ? 1 : 0, name + " en " + x + "," + y);
+    }
+  };
+  // RGBA de 16 bits, sin y con entrelazado
+  for (const interlace of [0, 1]) {
+    const png = encodePngAny(W, H, { ctype: 6, depth: 16, interlace }, (x, y) => [x * 2000, y * 3000, 40000, inside(x, y) ? 65535 : 0]);
+    const img = Nest.decodePng(binStr(png));
+    check(img, "rgba16 i" + interlace);
+    assert.strictEqual(img.r[5], (5 * 2000) >> 8);
+  }
+  // RGBA de 8 bits entrelazado
+  check(Nest.decodePng(binStr(encodePngAny(W, H, { ctype: 6, depth: 8, interlace: 1 }, (x, y) => [9, 9, 9, inside(x, y) ? 255 : 0]))), "rgba8 adam7");
+  // paleta de 4 bits con tRNS (índice 0 transparente)
+  check(Nest.decodePng(binStr(encodePngAny(W, H, { ctype: 3, depth: 4, plte: [0, 0, 0, 255, 0, 0], trns: [0, 255] },
+    (x, y) => [inside(x, y) ? 1 : 0]))), "paleta4");
+  // gris de 1, 2 y 4 bits con clave tRNS (valor 0 = transparente)
+  for (const depth of [1, 2, 4]) {
+    check(Nest.decodePng(binStr(encodePngAny(W, H, { ctype: 0, depth, trns: [0, 0] }, (x, y) => [inside(x, y) ? 1 : 0]))), "gris" + depth);
+  }
+  // RGB de 8 bits con clave tRNS blanca
+  check(Nest.decodePng(binStr(encodePngAny(W, H, { ctype: 2, depth: 8, trns: [0, 255, 0, 255, 0, 255] },
+    (x, y) => (inside(x, y) ? [10, 20, 30] : [255, 255, 255])))), "rgb-clave");
+  // gris+alfa de 16 bits
+  check(Nest.decodePng(binStr(encodePngAny(W, H, { ctype: 4, depth: 16 }, (x, y) => [100, inside(x, y) ? 65535 : 0]))), "ga16");
+});
+
+test("maskFromImage: alfa, fondo sólido y foto rectangular", () => {
+  const W = 30, H = 20, n = W * H;
+  const mk = (fn) => { const img = { width: W, height: H, r: [], g: [], b: [], alpha: [] };
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const [r, g, b, a] = fn(x, y); img.r.push(r); img.g.push(g); img.b.push(b); img.alpha.push(a); }
+    return img; };
+  const inside = (x, y) => x > 8 && x < 20 && y > 4 && y < 15;
+  // con transparencia
+  let r = Nest.maskFromImage(mk((x, y) => [255, 255, 255, inside(x, y) ? 255 : 0]), 15, 10, 2);
+  assert.strictEqual(r.mode, "alpha");
+  // opaca con fondo blanco y diseño oscuro -> se quita el fondo
+  r = Nest.maskFromImage(mk((x, y) => (inside(x, y) ? [20, 20, 20, 255] : [252, 253, 255, 255])), 15, 10, 2);
+  assert.strictEqual(r.mode, "fondo");
+  assert(Nest.maskArea(r.mask) > 0 && Nest.maskArea(r.mask) < 15 * 10 / 2, "silueta parcial");
+  // opaca sin fondo uniforme (foto) -> rectángulo
+  r = Nest.maskFromImage(mk((x, y) => [(x * 37) % 256, (y * 53) % 256, (x * y) % 256, 255]), 15, 10, 2);
+  assert.strictEqual(r.mode, "rect");
+  // parche blanco opaco con transparencia alrededor: se respeta tal cual
+  r = Nest.maskFromImage(mk((x, y) => (inside(x, y) ? (x === 14 ? [0, 0, 0, 255] : [255, 255, 255, 255]) : [0, 0, 0, 0])), 15, 10, 2);
+  assert.strictEqual(r.mode, "alpha");
+  // vacía
+  r = Nest.maskFromImage(mk(() => [0, 0, 0, 0]), 15, 10, 2);
+  assert.strictEqual(r.mode, "vacia");
+});
+
 test("maskFromAlpha reduce con OR (conservador)", () => {
   const img = { width: 4, height: 4, alpha: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 0, 0, 0, 0] };
   const m = Nest.maskFromAlpha(img, 2, 2, 2);

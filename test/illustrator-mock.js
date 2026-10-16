@@ -35,13 +35,14 @@ function containsPoint(it, X, Y) {
   return it._shape(dx / w0 + 0.5, dy / h0 + 0.5);
 }
 
-function encodePngRGBA(w, h, alphaAt) {
+function encodePngRGBA(w, h, pixelAt) {
   const raw = Buffer.alloc((w * 4 + 1) * h);
   for (let y = 0; y < h; y++) {
     raw[y * (w * 4 + 1)] = 0;
     for (let x = 0; x < w; x++) {
       const o = y * (w * 4 + 1) + 1 + x * 4;
-      raw[o] = 255; raw[o + 1] = 255; raw[o + 2] = 255; raw[o + 3] = alphaAt(x, y);
+      const px = pixelAt(x, y);
+      raw[o] = px[0]; raw[o + 1] = px[1]; raw[o + 2] = px[2]; raw[o + 3] = px[3];
     }
   }
   const chunk = (type, data) => {
@@ -74,16 +75,31 @@ function createDocument(opts) {
         items: items.map((it) => ({ type: it.typename, b: it.visibleBounds })),
       }));
     },
-    imageCapture(file, rect, o) {
-      const res = o.resolution;
+    // Dibuja lo visible: las imágenes vinculadas (PlacedItem) NO se dibujan
+    // en la captura, como sospechamos que pasa en Illustrator; al
+    // incrustarlas (RasterItem) sí. _bg = imagen opaca con fondo blanco.
+    _render(file, rect, res, skipPlaced) {
       const w = Math.max(1, Math.round((rect[2] - rect[0]) / 72 * res));
       const h = Math.max(1, Math.round((rect[1] - rect[3]) / 72 * res));
-      const items = doc._items.filter((it) => !it._removed && !it.hidden);
+      const items = doc._items.filter((it) => !it._removed && !it.hidden && !(skipPlaced && it.typename === "PlacedItem"));
       const png = encodePngRGBA(w, h, (x, y) => {
         const X = rect[0] + (x + 0.5) * 72 / res, Y = rect[1] - (y + 0.5) * 72 / res;
-        return items.some((it) => containsPoint(it, X, Y)) ? 255 : 0;
+        for (const it of items) {
+          if (containsPoint(it, X, Y)) return it._bg ? [25, 25, 25, 255] : [255, 255, 255, 255];
+          const b = it.visibleBounds;
+          if (it._bg && X >= b[0] && X <= b[2] && Y <= b[1] && Y >= b[3]) return [253, 253, 253, 255];
+        }
+        return [0, 0, 0, 0];
       });
       memFiles.set(file.fsName, png.toString("latin1"));
+    },
+    imageCapture(file, rect, o) {
+      if (doc._app && doc._app._captureThrows) throw new Error("imageCapture falló");
+      doc._render(file, rect, o.resolution, true);
+    },
+    exportFile(file, type, o) {
+      if (doc._app && doc._app._exportThrows) throw new Error("exportFile falló");
+      doc._render(file, doc.artboards[0].artboardRect, o.horizontalScale / 100 * 72, false);
     },
   };
 
@@ -158,6 +174,7 @@ function baseItem(doc, layer, typename, bounds) {
       this._b = nb;
     },
     createOutline() { this.typename = "GroupItem"; return this; },
+    embed() { if (this.typename === "PlacedItem") this.typename = "RasterItem"; },
     rotate(angle) {
       const b = this._b, cx = (b[0] + b[2]) / 2, cy = (b[1] + b[3]) / 2;
       const w = b[2] - b[0], h = b[1] - b[3];
@@ -168,7 +185,7 @@ function baseItem(doc, layer, typename, bounds) {
       const tl = target && target.typename === "Layer" ? target : layer;
       const d = baseItem(tl.parent, tl, typename, this._b);
       d.name = this.name; d.note = this.note; d._src = this._src || this;
-      d._rot = this._rot; d._shape = this._shape;
+      d._rot = this._rot; d._shape = this._shape; d._bg = this._bg; d.file = this.file;
       if (typename === "TextFrame") { d.contents = this.contents; d._b = this._b; }
       tl.pageItems.unshift(d);
       return d;
@@ -179,6 +196,16 @@ function baseItem(doc, layer, typename, bounds) {
     },
   };
   doc._items.push(it);
+  return it;
+}
+
+// Imagen vinculada (como un PNG colocado con Archivo > Colocar).
+function addPlaced(doc, layer, bounds, name) {
+  const it = baseItem(doc, layer, "PlacedItem", bounds);
+  it.name = "";
+  it.file = { name: name, exists: true };
+  it.matrix = { mValueA: 0.24, mValueB: 0 }; // 300 ppi
+  layer.pageItems.push(it);
   return it;
 }
 
@@ -322,7 +349,7 @@ function makeScriptUI(onShow, toArr) {
 }
 
 // ------------------------------------------------------------- Ejecutar ---
-function runScript({ doc, onShow, outFolder }) {
+function runScript({ doc, onShow, outFolder, captureThrows, exportThrows }) {
   const opts = { outFolder };
   const src = fs.readFileSync(path.join(__dirname, "..", "AutoSort-Gangsheet.jsx"), "utf8").replace(/^﻿/, "");
   const alerts = [];
@@ -338,6 +365,8 @@ function runScript({ doc, onShow, outFolder }) {
     redraw() { app.redraws = (app.redraws || 0) + 1; },
   };
   doc._app = app;
+  app._captureThrows = !!captureThrows;
+  app._exportThrows = !!exportThrows;
   app.documents.add = () => {
     const d = createDocument({ artboard: [0, 0, 612, -792] });
     d.layers.push(makeLayer(d, "Capa 1"));
@@ -369,6 +398,8 @@ function runScript({ doc, onShow, outFolder }) {
       selectDialog: () => (opts.outFolder ? { fsName: opts.outFolder, exists: true } : null),
     }),
     EPSSaveOptions: function () { this.kind = "eps"; },
+    ExportOptionsPNG24: function () { },
+    ExportType: { PNG24: "PNG24" },
     ElementPlacement: { PLACEATEND: "PLACEATEND" },
     SaveOptions: { DONOTSAVECHANGES: "NO" },
     ImageCaptureOptions: function () { },
@@ -381,4 +412,4 @@ function runScript({ doc, onShow, outFolder }) {
   return { alerts, windows: ui.windows, app };
 }
 
-module.exports = { createDocument, makeLayer, addPath, runScript, insideCanvas, containsPoint, CANVAS, memFiles };
+module.exports = { createDocument, makeLayer, addPath, addPlaced, runScript, insideCanvas, containsPoint, CANVAS, memFiles };
