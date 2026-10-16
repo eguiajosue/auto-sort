@@ -65,6 +65,15 @@ function createDocument(opts) {
     _items: [],
     activate() { if (doc._app) doc._app.activeDocument = doc; },
     close() { doc._closed = true; if (doc._app) doc._app.documents.splice(doc._app.documents.indexOf(doc), 1); },
+    get textFrames() { return doc._items.filter((it) => !it._removed && it.typename === "TextFrame"); },
+    saveAs(file, o) {
+      const items = doc._items.filter((it) => !it._removed);
+      const ab = doc.artboards[0].artboardRect;
+      memFiles.set(file.fsName, JSON.stringify({
+        kind: o.kind, artboard: ab, outlined: !doc.textFrames.length,
+        items: items.map((it) => ({ type: it.typename, b: it.visibleBounds })),
+      }));
+    },
     imageCapture(file, rect, o) {
       const res = o.resolution;
       const w = Math.max(1, Math.round((rect[2] - rect[0]) / 72 * res));
@@ -134,8 +143,10 @@ function makeLayer(doc, name) {
   return layer;
 }
 
+let uuidSeq = 0;
 function baseItem(doc, layer, typename, bounds) {
   const it = {
+    uuid: "u" + (++uuidSeq),
     typename, parent: layer, locked: false, hidden: false, guides: false, selected: false,
     name: "", note: "", stroked: false, clipping: false, _b: bounds.slice(),
     matrix: { mValueA: 1, mValueB: 0 },
@@ -146,6 +157,7 @@ function baseItem(doc, layer, typename, bounds) {
       if (!insideCanvas(nb)) throw canvasError();
       this._b = nb;
     },
+    createOutline() { this.typename = "GroupItem"; return this; },
     rotate(angle) {
       const b = this._b, cx = (b[0] + b[2]) / 2, cy = (b[1] + b[3]) / 2;
       const w = b[2] - b[0], h = b[1] - b[3];
@@ -157,6 +169,7 @@ function baseItem(doc, layer, typename, bounds) {
       const d = baseItem(tl.parent, tl, typename, this._b);
       d.name = this.name; d.note = this.note; d._src = this._src || this;
       d._rot = this._rot; d._shape = this._shape;
+      if (typename === "TextFrame") { d.contents = this.contents; d._b = this._b; }
       tl.pageItems.unshift(d);
       return d;
     },
@@ -214,8 +227,13 @@ function makeScriptUI(onShow, toArr) {
       preferredSize: { width: 0, height: 0 }, children: [], window: win, props: props || {},
       add(t, bounds, txt, pr) {
         let ch;
+        if (c.type === "dropdownlist" && t === "item") {
+          ch = { text: typeof bounds === "string" ? bounds : txt, index: c.items.length };
+          c.items.push(ch);
+          return ch;
+        }
         if (c.type === "listbox" && t === "item") {
-          ch = { text: txt, index: c.items.length, selected: false, subItems: [{ text: "" }, { text: "" }, { text: "" }] };
+          ch = { text: typeof bounds === "string" ? bounds : txt, index: c.items.length, selected: false, subItems: [{ text: "" }, { text: "" }, { text: "" }] };
           c.items.push(ch);
           return ch;
         }
@@ -232,6 +250,7 @@ function makeScriptUI(onShow, toArr) {
     };
     if (type === "dropdownlist") {
       let sel = null;
+      c.removeAll = () => { c.items = []; sel = null; };
       Object.defineProperty(c, "selection", {
         get() { return sel; },
         set(v) { sel = typeof v === "number" ? c.items[v] : v; },
@@ -303,7 +322,8 @@ function makeScriptUI(onShow, toArr) {
 }
 
 // ------------------------------------------------------------- Ejecutar ---
-function runScript({ doc, onShow }) {
+function runScript({ doc, onShow, outFolder }) {
+  const opts = { outFolder };
   const src = fs.readFileSync(path.join(__dirname, "..", "AutoSort-Gangsheet.jsx"), "utf8").replace(/^﻿/, "");
   const alerts = [];
   const sandbox = {};
@@ -331,9 +351,11 @@ function runScript({ doc, onShow }) {
     const f = {
       fsName: String(p), name: String(p).split("/").pop(), parent: null, encoding: "UTF-8",
       get exists() { return memFiles.has(f.fsName); },
-      open: (mode) => mode === "r" ? memFiles.has(f.fsName) : false,
+      _buf: null,
+      open: (mode) => { if (mode === "w") { f._buf = ""; return true; } return memFiles.has(f.fsName); },
       read: () => memFiles.get(f.fsName),
-      write: () => {}, close: () => {},
+      write: (t) => { f._buf += t; },
+      close: () => { if (f._buf !== null) { memFiles.set(f.fsName, f._buf); f._buf = null; } },
       remove: () => memFiles.delete(f.fsName),
     };
     return f;
@@ -342,7 +364,11 @@ function runScript({ doc, onShow }) {
     app, alert: (m) => alerts.push(String(m)),
     Window: ui.Window,
     File: fakeFile,
-    Folder: Object.assign(() => ({ exists: false }), { userData: "/tmp", temp: "/mem", selectDialog: () => null }),
+    Folder: Object.assign(() => ({ exists: false }), {
+      userData: "/tmp", temp: "/mem",
+      selectDialog: () => (opts.outFolder ? { fsName: opts.outFolder, exists: true } : null),
+    }),
+    EPSSaveOptions: function () { this.kind = "eps"; },
     ElementPlacement: { PLACEATEND: "PLACEATEND" },
     SaveOptions: { DONOTSAVECHANGES: "NO" },
     ImageCaptureOptions: function () { },
@@ -355,4 +381,4 @@ function runScript({ doc, onShow }) {
   return { alerts, windows: ui.windows, app };
 }
 
-module.exports = { createDocument, makeLayer, addPath, runScript, insideCanvas, containsPoint, CANVAS };
+module.exports = { createDocument, makeLayer, addPath, runScript, insideCanvas, containsPoint, CANVAS, memFiles };

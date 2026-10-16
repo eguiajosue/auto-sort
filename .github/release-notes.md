@@ -21,7 +21,9 @@ Al actualizar desde otra versión, reemplaza el archivo y reinicia Illustrator.
 - Separación de corte configurable; nunca cambia el tamaño de los diseños.
 - Modo rollo (ancho fijo, largo mínimo) o mesa de trabajo actual, y **varias hojas** si no cabe todo.
 - **Cantidades y tallas** por diseño, con etiqueta discreta en su propia capa.
-- Revisión previa, largo exacto/redondeado/estándar, costo estimado y exportación a **PNG** transparente.
+- Revisión previa, largo exacto/redondeado/estándar y costo estimado.
+- Exportación a **PNG** transparente y a **EPS vectorial** (uno por hoja).
+- **Rellenar huecos** con copias extra sin alargar la hoja, **objetos fijos** respetados, **etiqueta del pedido** y **resumen .csv**.
 
 Guía completa y simulador: https://eguiajosue.github.io/auto-sort/
 

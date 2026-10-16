@@ -193,6 +193,46 @@ test("varias hojas: respeta el máximo de hojas", () => {
   assert.strictEqual(res.unplaced.length, 46);
 });
 
+// ------------------------------- Obstáculos -------------------------------
+function assertAvoids(res, obstacles, gap) {
+  for (const p of res.placements) for (const o of obstacles) {
+    const sepX = Math.max(o.x - (p.x + p.w), p.x - (o.x + o.w));
+    const sepY = Math.max(o.y - (p.y + p.h), p.y - (o.y + o.h));
+    assert(Math.max(sepX, sepY) >= gap - EPS, `pieza ${p.id} invade un obstáculo`);
+  }
+}
+
+test("obstáculos: rollo y mesa fija los respetan", () => {
+  const items = randomItems(40, 9, 30, 120);
+  const obstacles = [{ x: 3 * MM, y: 3 * MM, w: 200 * MM, h: 40 * MM }, { x: 300 * MM, y: 150 * MM, w: 80 * MM, h: 80 * MM }];
+  const so = { width: 580 * MM, gap: 3 * MM, margin: 3 * MM, allowRotate: true, quality: "normal", obstacles };
+  const rs = Packer.packStrip(items, so);
+  verify(items, rs, so, rs.height);
+  assertAvoids(rs, obstacles, so.gap);
+  assert.strictEqual(rs.unplaced.length, 0);
+  const fo = { width: 500 * MM, height: 700 * MM, gap: 3 * MM, margin: 3 * MM, allowRotate: true, quality: "fast", obstacles };
+  const rf = Packer.packFixed(items, fo);
+  verify(items, rf, fo, fo.height);
+  assertAvoids(rf, obstacles, fo.gap);
+});
+
+test("obstáculos: el rollo nunca es más corto que el obstáculo", () => {
+  const items = [{ id: 0, w: 20 * MM, h: 20 * MM }];
+  const obstacles = [{ x: 400 * MM, y: 3 * MM, w: 50 * MM, h: 300 * MM }];
+  const res = Packer.packStrip(items, { width: 580 * MM, gap: 3 * MM, margin: 3 * MM, allowRotate: true, quality: "fast", obstacles });
+  assert(res.height >= 306 * MM - EPS, "largo " + res.height / MM);
+});
+
+test("varias hojas: obstáculo de la hoja 1 y etiqueta en todas", () => {
+  const items = Array.from({ length: 60 }, (_, i) => ({ id: i, w: 100 * MM, h: 100 * MM }));
+  const first = [{ x: 3 * MM, y: 3 * MM, w: 300 * MM, h: 100 * MM }];
+  const every = [{ x: 3 * MM, y: 3 * MM, w: 60 * MM, h: 4 * MM }];
+  const opts = { width: 580 * MM, height: 1000 * MM, gap: 3 * MM, margin: 3 * MM, allowRotate: true, quality: "fast", strip: true, obstacles: first, obstaclesEvery: every };
+  const res = Packer.packSheets(items, opts);
+  assert.strictEqual(res.unplaced.length, 0);
+  res.sheets.forEach((sh, n) => assertAvoids({ placements: sh.placements }, n === 0 ? first.concat(every) : every, 3 * MM));
+});
+
 // ------------------------------- Utilidades -------------------------------
 test("parseList: separadores y decimales con coma", () => {
   assert.deepStrictEqual(Utils.parseList("100; 50 150, 200"), [50, 100, 150, 200]);

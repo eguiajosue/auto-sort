@@ -247,4 +247,53 @@ test("rendimiento: 100 piezas mixtas", () => {
   console.log(`    largo ${(res.usedH * 2 / 10).toFixed(1)} cm`);
 });
 
+test("forma real: obstáculos fijos", () => {
+  const ker = Nest.kernel(3 * MM, 2 * MM);
+  const shape = Nest.prepareShape(chevron(50, 125, 0.22), ker, true);
+  const items = Array.from({ length: 12 }, (_, i) => ({ id: i, shape }));
+  const obstacles = [{ x: 0, y: 0, w: 120, h: 40 }];
+  const res = Nest.pack(items, { gridW: 290, gridH: 3000, quality: "fast", obstacles });
+  const byId = {}; items.forEach((it) => { byId[it.id] = { mask: chevron(50, 125, 0.22) }; });
+  checkPlacements(res.placed, byId, 290, 3000, 3 * MM, 2 * MM);
+  // ninguna celda dentro del obstáculo
+  res.placed.forEach((p) => {
+    const m = Nest.rotateMask(chevron(50, 125, 0.22), p.k);
+    for (let y = 0; y < m.h; y++) for (let x = 0; x < m.w; x++) {
+      if (m.d[y * m.w + x]) assert(!(p.x + x < 120 && p.y + y < 40), "pieza dentro del obstáculo");
+    }
+  });
+  assert(res.usedH >= 40);
+});
+
+test("relleno de huecos: agrega copias sin encimar ni alargar la hoja", () => {
+  const ker = Nest.kernel(3 * MM, 2 * MM);
+  const big = Nest.prepareShape(Nest.fullMask(100, 60), ker, true);
+  const small = Nest.prepareShape(maskFrom(15, 15, (x, y) => (x - 7) ** 2 + (y - 7) ** 2 < 56), ker, true);
+  const items = Array.from({ length: 5 }, (_, i) => ({ id: i, shape: big }));
+  const res = Nest.pack(items, { gridW: 290, gridH: 400, quality: "fast" });
+  const gridH = res.usedH; // no alargar
+  const occupied = res.placed.map((p) => ({ rows: big.rots.find((r) => r.k === p.k).rows, x: p.x, y: p.y }));
+  const extra = Nest.fill({ gridW: 290, gridH, occupied, shape: small, max: 0 });
+  assert(extra.length > 0, "debería encontrar huecos");
+  const capped = Nest.fill({ gridW: 290, gridH, occupied, shape: small, max: 3 });
+  assert.strictEqual(capped.length, 3);
+  // verificar todo junto
+  const all = res.placed.map((p) => ({ ...p, id: "b" + p.id })).concat(extra.map((p, i) => ({ ...p, id: "s" + i })));
+  const byId = {};
+  res.placed.forEach((p) => { byId["b" + p.id] = { mask: Nest.fullMask(100, 60) }; });
+  extra.forEach((p, i) => { byId["s" + i] = { mask: maskFrom(15, 15, (x, y) => (x - 7) ** 2 + (y - 7) ** 2 < 56) }; });
+  checkPlacements(all, byId, 290, gridH, 3 * MM, 2 * MM);
+  console.log(`    ${extra.length} copias de relleno en ${gridH} filas`);
+});
+
+test("relleno con rectángulos llenos (modo rectángulos)", () => {
+  const ker = Nest.kernel(3 * MM, 2 * MM);
+  const fillShape = Nest.prepareShape(Nest.fullMask(20, 20), ker, true);
+  const occupied = [{ rows: Nest.rectRows(100, 100), x: 0, y: 0 }];
+  const extra = Nest.fill({ gridW: 150, gridH: 100, occupied, shape: fillShape, max: 0 });
+  // a la derecha caben (150-100-2)/(20+2)... al menos 2 columnas x 4 filas
+  assert(extra.length >= 8, "copias: " + extra.length);
+  extra.forEach((p) => assert(p.x >= 102 && p.x + p.w <= 150 && p.y + p.h <= 100));
+});
+
 console.log(`\n${passed} pruebas de forma OK`);

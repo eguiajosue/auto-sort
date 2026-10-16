@@ -2,7 +2,7 @@
 // Uso: node test/integration.test.js
 "use strict";
 const assert = require("assert");
-const { createDocument, makeLayer, addPath, runScript, insideCanvas, containsPoint } = require("./illustrator-mock");
+const { createDocument, makeLayer, addPath, runScript, insideCanvas, containsPoint, memFiles } = require("./illustrator-mock");
 
 const MM = 2.834645669;
 let passed = 0;
@@ -296,6 +296,138 @@ test("forma real con tallas y varias hojas", () => {
   assert.strictEqual(labels(doc).length, 60);
   assertShapesApart(doc, all, 1.5); // etiquetas a 1.5 mm de su diseño
   console.log("    " + msg.split("\n").filter((l) => /^Hoja/.test(l)).join(" | "));
+});
+
+// ------------------------------------------- Nuevas funciones (v1.1) ---
+function setupTwo() {
+  const doc = createDocument({ artboard: [0, 0, 595.28, -841.89] });
+  const layer = makeLayer(doc, "Capa 1");
+  doc.layers.push(layer);
+  const big = addPath(doc, layer, [100, -100, 100 + 150 * MM, -100 - 120 * MM], "Grande");
+  const small = addPath(doc, layer, [300, -100, 300 + 40 * MM, -100 - 40 * MM], "Chico");
+  big.selected = small.selected = true;
+  return { doc, layer, big, small };
+}
+const named = (doc, n) => designs(doc).filter((d) => d.name === n);
+
+// Diálogo con opciones nuevas.
+function dialogV11(h, o) {
+  h.find("dropdownlist").selection = 0; h.find("dropdownlist").onChange();
+  h.radio(o.fixed ? "Mesa de trabajo actual" : "Ancho fijo");
+  h.editAfter("Ancho de la hoja").text = String(o.width || 580);
+  h.editAfter("Entre elementos").text = "3";
+  h.editAfter("Margen al borde").text = "3";
+  if (o.shape) {
+    const ddm = h.all().find((c) => c.type === "dropdownlist" && c.items && c.items[0] && c.items[0].text.indexOf("Rectángulos") === 0);
+    ddm.selection = 1; ddm.onChange && ddm.onChange();
+  }
+  // copias por fila (en el orden de la lista)
+  (o.qty || []).forEach((q, i) => { h.selectRows([i]); h.editAfter("Copias:").text = String(q); h.click("Asignar copias"); });
+  if (o.fill) {
+    const dd = h.all().find((c) => c.type === "dropdownlist" && c.items && c.items[0] && c.items[0].text === "(no rellenar)");
+    dd.selection = dd.items.findIndex((it) => it.text.indexOf(o.fill) === 0);
+    if (o.fillMax) h.editAfter("hasta").text = String(o.fillMax);
+  }
+  if (o.order) { h.check("Etiqueta del pedido", true); const i = h.all().findIndex((c) => c.type === "checkbox" && c.text.indexOf("Etiqueta del pedido") === 0); h.all().slice(i).find((c) => c.type === "edittext").text = o.order; }
+  if (o.csv) h.check("Guardar resumen", true);
+  if (o.eps) h.check("Exportar EPS", true);
+  h.click("Acomodar");
+}
+function runV11(doc, o) {
+  return runScript({ doc, outFolder: "/out", onShow: (w, h) => { if (w.title === "AutoSort Gangsheet DTF") dialogV11(h, o); } });
+}
+
+test("rellenar huecos (rectángulos): agrega copias sin alargar la hoja", () => {
+  const a = setupTwo();
+  runV11(a.doc, { qty: [3, 0] });
+  const lenBase = a.doc.artboards[0].artboardRect[1] - a.doc.artboards[0].artboardRect[3];
+  const b = setupTwo();
+  const { alerts } = runV11(b.doc, { qty: [3, 0], fill: "Chico" });
+  const msg = alerts[alerts.length - 1];
+  const ab = b.doc.artboards[0].artboardRect;
+  assert(/Relleno: \d+ copia/.test(msg), msg);
+  assert(Math.abs((ab[1] - ab[3]) - lenBase) < 0.01, "el relleno no debe alargar la hoja");
+  const ds = designs(b.doc);
+  assert(named(b.doc, "Chico").length > 0);
+  ds.forEach((d) => assert(within(d.visibleBounds, ab), "pieza fuera"));
+  assertNoOverlap(ds, 3 * MM);
+  console.log(`    ${named(b.doc, "Chico").length} copias de relleno; largo ${(lenBase / MM / 10).toFixed(1)} cm sin cambio`);
+});
+
+test("rellenar huecos con tope de copias", () => {
+  const b = setupTwo();
+  runV11(b.doc, { qty: [3, 0], fill: "Chico", fillMax: 2 });
+  assert.strictEqual(named(b.doc, "Chico").length, 2);
+});
+
+test("rellenar huecos (forma real)", () => {
+  const b = setupTwo();
+  b.big._shape = chevronShape;
+  runV11(b.doc, { qty: [4, 0], fill: "Chico", shape: true });
+  assert(named(b.doc, "Chico").length > 0);
+  assertShapesApart(b.doc, designs(b.doc), 3);
+});
+
+test("objetos fijos: las piezas rodean lo bloqueado", () => {
+  const a = setupTwo();
+  // logo fijo bloqueado arriba a la izquierda de la mesa de trabajo
+  const fixed = addPath(a.doc, a.layer, [10, -10, 10 + 200 * MM, -10 - 60 * MM], "Logo fijo");
+  fixed.locked = true;
+  const { alerts } = runV11(a.doc, { qty: [4, 6] });
+  const msg = alerts[alerts.length - 1];
+  assert(/Objetos fijos respetados: 1/.test(msg), msg);
+  assert.deepStrictEqual(fixed.visibleBounds, [10, -10, 10 + 200 * MM, -10 - 60 * MM], "el objeto fijo no se mueve");
+  const fb = fixed.visibleBounds;
+  designs(a.doc).filter((d) => d !== fixed).forEach((d) => {
+    const b = d.visibleBounds;
+    const sepX = Math.max(fb[0] - b[2], b[0] - fb[2]), sepY = Math.max(b[3] - fb[1], fb[3] - b[1]);
+    assert(Math.max(sepX, sepY) >= 3 * MM - 0.01, "pieza sobre el objeto fijo");
+  });
+});
+
+test("etiqueta del pedido, resumen CSV y EPS por hoja", () => {
+  memFiles.clear();
+  const a = setupTwo();
+  const { alerts } = runV11(a.doc, { qty: [8, 30], order: "Pedido 123", csv: true, eps: true });
+  const msg = alerts[alerts.length - 1];
+  // etiqueta del pedido
+  const orders = a.doc._items.filter((it) => !it._removed && it.typename === "TextFrame" && it.parent.name === "Datos del pedido");
+  assert.strictEqual(orders.length, 1, msg);
+  assert(/^Pedido 123 · \d\d\/\d\d\/\d{4} · Hoja 1\/1$/.test(orders[0].contents), orders[0].contents);
+  const ob = orders[0].visibleBounds;
+  designs(a.doc).forEach((d) => {
+    const b = d.visibleBounds;
+    const sepX = Math.max(ob[0] - b[2], b[0] - ob[2]), sepY = Math.max(b[3] - ob[1], ob[3] - b[1]);
+    assert(Math.max(sepX, sepY) >= 3 * MM - 0.01, "pieza sobre la etiqueta del pedido");
+  });
+  // CSV
+  const csv = memFiles.get("/out/prueba_resumen.csv");
+  assert(csv, "no se guardó el CSV: " + msg);
+  const lines = csv.replace(/^\uFEFF/, "").split("\r\n");
+  assert.strictEqual(lines[0], "Hoja,Diseño,Talla,Copias,Ancho (mm),Largo (mm)");
+  const total = lines.slice(1).reduce((t, l) => t + +l.split(",")[3], 0);
+  assert.strictEqual(total, 38);
+  // EPS
+  const epsName = [...memFiles.keys()].find((k) => k.endsWith(".eps"));
+  assert(epsName, "no se guardó el EPS: " + msg);
+  const eps = JSON.parse(memFiles.get(epsName));
+  const ab = a.doc.artboards[0].artboardRect;
+  assert.deepStrictEqual(eps.artboard.map((v) => Math.round(v * 100)), Array.from(ab, (v) => Math.round(v * 100)));
+  assert(eps.outlined, "los textos deben ir a contornos");
+  assert.strictEqual(eps.items.filter((i) => i.type === "PathItem").length, 38);
+  console.log("    " + epsName.split("/").pop() + " · " + (lines.length - 1) + " filas de resumen");
+});
+
+test("varias hojas: una etiqueta y un EPS por hoja", () => {
+  memFiles.clear();
+  const a = setupTwo();
+  runV11(a.doc, { qty: [40, 0], order: "P-7", eps: true });
+  const n = a.doc.artboards.length;
+  assert(n >= 1);
+  const orders = a.doc._items.filter((it) => !it._removed && it.typename === "TextFrame" && it.parent.name === "Datos del pedido");
+  assert.strictEqual(orders.length, n);
+  const epsFiles = [...memFiles.keys()].filter((k) => k.endsWith(".eps"));
+  assert.strictEqual(epsFiles.length, n);
 });
 
 console.log(`\n${passed} pruebas de integración OK`);
