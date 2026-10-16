@@ -202,9 +202,30 @@
         // ---------------------------------------------------------------
         // Ejecución de una combinación
         // ---------------------------------------------------------------
-        function run(rects, binW, binH, combo, minDim, failFast) {
+        // Obstáculos (coordenadas de la hoja) convertidos al contenedor: se
+        // ensanchan con la separación para que las piezas la respeten.
+        function obstacleNodes(list, margin, gap, binW, binH) {
+            var out = [], bottom = 0, i, o, x1, y1, x2, y2;
+            for (i = 0; list && i < list.length; i++) {
+                o = list[i];
+                x1 = Math.max(0, o.x - margin);
+                y1 = Math.max(0, o.y - margin);
+                x2 = Math.min(binW, o.x + o.w - margin + gap);
+                y2 = Math.min(binH, o.y + o.h - margin + gap);
+                if (x2 - x1 <= EPS || y2 - y1 <= EPS) continue;
+                out.push({ x: x1, y: y1, w: x2 - x1, h: y2 - y1 });
+                if (y2 > bottom) bottom = y2;
+            }
+            return { nodes: out, bottom: bottom };
+        }
+
+        function run(rects, binW, binH, combo, minDim, failFast, obst) {
             var bin = new Bin(binW, binH, combo.rot, minDim);
             var placed = [], unplaced = [], usedH = 0, i, r, node, order;
+            if (obst) {
+                for (i = 0; i < obst.nodes.length; i++) bin.place(obst.nodes[i]);
+                usedH = obst.bottom;
+            }
             if (!combo.global) {
                 order = sorted(rects, combo.sort);
                 for (i = 0; i < order.length; i++) {
@@ -289,6 +310,7 @@
             var prep = prepare(items, binW, HUGE, gap, opts.allowRotate);
             var rects = prep.rects;
             if (!rects.length) return { placements: [], unplaced: prep.tooBig, height: 2 * margin };
+            var obst = obstacleNodes(opts.obstacles, margin, gap, binW, HUGE);
 
             for (i = 0; i < rects.length; i++) {
                 r = rects[i];
@@ -301,6 +323,7 @@
                 if (need > lo) lo = need;
             }
             if (area / binW > lo) lo = area / binW;
+            if (obst.bottom > lo) lo = obst.bottom;
 
             // Sin girar no se puede si alguna pieza solo cabe girada.
             var canSkipRot = true;
@@ -312,7 +335,7 @@
 
             // 1) Cota superior con un contenedor "infinito".
             for (c = 0; c < combos.length; c++) {
-                res = run(rects, binW, sumH + 1, combos[c], prep.minDim, false);
+                res = run(rects, binW, sumH + obst.bottom + 1, combos[c], prep.minDim, false, obst);
                 if (!res.unplaced.length && (!best || res.usedH < best.usedH - EPS)) best = res;
                 progress(opts, ++done, total, "Buscando acomodo inicial");
             }
@@ -326,7 +349,7 @@
                 mid = (lo + hi) / 2;
                 found = null;
                 for (c = 0; c < combos.length; c++) {
-                    res = run(rects, binW, mid, combos[c], prep.minDim, true);
+                    res = run(rects, binW, mid, combos[c], prep.minDim, true, obst);
                     progress(opts, ++done, total, "Reduciendo largo de la hoja (" + iter + ")");
                     if (res) { found = res; break; }
                 }
@@ -370,8 +393,9 @@
             if (!prep.rects.length) return { placements: [], unplaced: prep.tooBig, height: opts.height };
 
             var combos = buildCombos(opts.quality, opts.allowRotate, true), best = null, res, c;
+            var obst = obstacleNodes(opts.obstacles, margin, gap, binW, binH);
             for (c = 0; c < combos.length; c++) {
-                res = run(prep.rects, binW, binH, combos[c], prep.minDim, false);
+                res = run(prep.rects, binW, binH, combos[c], prep.minDim, false, obst);
                 if (!best || fixedBetter(res, best, opts.preferArea)) best = res;
                 progress(opts, c + 1, combos.length, "Probando acomodos");
             }
@@ -382,7 +406,8 @@
         // Varias hojas: llena hojas de width x height una tras otra con lo
         // que no cupo en la anterior.
         // opts: {width, height, gap, margin, allowRotate, quality, strip,
-        //        maxSheets, onProgress}
+        //        maxSheets, onProgress, obstacles (solo hoja 1),
+        //        obstaclesEvery (en todas las hojas)}
         // strip = true: la última hoja se acorta al largo mínimo y cada hoja
         //               reporta su largo usado.
         // Devuelve {sheets: [{placements, height}], unplaced: [ids]}
@@ -397,6 +422,7 @@
                 var o = {}, key;
                 for (key in opts) if (opts.hasOwnProperty(key)) o[key] = opts[key];
                 o.preferArea = true;
+                o.obstacles = (opts.obstaclesEvery || []).concat(n === 1 ? (opts.obstacles || []) : []);
                 o.onProgress = function (d, t, m) {
                     if (opts.onProgress) opts.onProgress(d, t, "Hoja " + n + ": " + m);
                 };
@@ -909,9 +935,24 @@
         };
 
         // Una pasada codiciosa. items: [{id, shape}]
-        function greedy(items, gridW, gridH, order, onStep) {
+        // Marca como ocupados rectángulos de celdas {x, y, w, h} (obstáculos
+        // fijos). Devuelve la fila siguiente al obstáculo más bajo.
+        function block(grid, list) {
+            var bottom = 0, i, o, y, x1, x2;
+            for (i = 0; list && i < list.length; i++) {
+                o = list[i];
+                x1 = Math.max(0, o.x);
+                x2 = Math.min(grid.w - 1, o.x + o.w - 1);
+                if (x2 < x1) continue;
+                for (y = Math.max(0, o.y); y < Math.min(grid.h, o.y + o.h); y++) grid.add(y, x1, x2);
+                if (o.y + o.h > bottom) bottom = Math.min(grid.h, o.y + o.h);
+            }
+            return bottom;
+        }
+
+        function greedy(items, gridW, gridH, order, onStep, obstacles) {
             var list = items.slice(0), grid = new Grid(gridW, gridH), i, r, rot, pos, best, bottom;
-            var placed = [], unplaced = [], usedH = 0, startKey, starts = {};
+            var placed = [], unplaced = [], usedH = block(grid, obstacles), startKey, starts = {};
             var fn = ORDERS[order];
             list.sort(function (a, b) { return fn(a, b) || (a.id - b.id); });
             for (i = 0; i < list.length; i++) {
@@ -950,7 +991,7 @@
             for (o = 0; o < orders.length; o++) {
                 res = greedy(items, opts.gridW, opts.gridH, orders[o], function (d, t) {
                     if (opts.onProgress) opts.onProgress(o * t + d, orders.length * t, "Acomodando por forma");
-                });
+                }, opts.obstacles);
                 if (!best || res.placed.length > best.placed.length ||
                     (res.placed.length === best.placed.length && res.usedH < best.usedH)) best = res;
             }
@@ -965,6 +1006,7 @@
                 n = sheets.length + 1;
                 res = pack(remaining, {
                     gridW: opts.gridW, gridH: opts.gridH, quality: opts.quality,
+                    obstacles: (opts.obstaclesEvery || []).concat(n === 1 ? (opts.obstacles || []) : []),
                     onProgress: function (d, t, m) { if (opts.onProgress) opts.onProgress(d, t, "Hoja " + n + ": " + m); }
                 });
                 if (!res.placed.length) break;
@@ -980,6 +1022,40 @@
             return { sheets: sheets, unplaced: ids };
         }
 
+        // Rellena los huecos de una hoja ya acomodada con copias de una forma.
+        // opts: {gridW, gridH, obstacles, occupied: [{rows, x, y}], shape, max}
+        // max = 0: sin límite. Devuelve [{x, y, k, w, h}].
+        function fill(opts) {
+            var grid = new Grid(opts.gridW, opts.gridH), out = [], starts = {}, i, j, q, o, r, rot, pos, best;
+            block(grid, opts.obstacles);
+            for (i = 0; i < opts.occupied.length; i++) {
+                o = opts.occupied[i];
+                for (j = 0; j < o.rows.length; j++) {
+                    for (q = 0; q < o.rows[j].length; q += 2) grid.add(o.y + j, o.x + o.rows[j][q], o.x + o.rows[j][q + 1]);
+                }
+            }
+            while (!opts.max || out.length < opts.max) {
+                best = null;
+                for (r = 0; r < opts.shape.rots.length; r++) {
+                    rot = opts.shape.rots[r];
+                    pos = findPos(grid, rot, starts[rot.k] || 0, best ? best.bottom : null);
+                    if (pos && (!best || pos.y + rot.h < best.bottom)) best = { rot: rot, x: pos.x, y: pos.y, bottom: pos.y + rot.h };
+                }
+                if (!best) break;
+                starts[best.rot.k] = best.y;
+                place(grid, best.rot, best.x, best.y);
+                out.push({ x: best.x, y: best.y, k: best.rot.k, w: best.rot.w, h: best.rot.h });
+            }
+            return out;
+        }
+
+        // Tramos de un rectángulo lleno de w x h celdas.
+        function rectRows(w, h) {
+            var rows = [], i;
+            for (i = 0; i < h; i++) rows.push([0, w - 1]);
+            return rows;
+        }
+
         // Gira un vector (u, v) k veces 90° antihorario (Y hacia abajo).
         function rotVec(u, v, k) {
             var t;
@@ -992,7 +1068,8 @@
             inflate: inflate, decodePng: decodePng, emptyMask: emptyMask, fullMask: fullMask,
             maskFromAlpha: maskFromAlpha, maskArea: maskArea, blit: blit, rotateMask: rotateMask,
             rowRuns: rowRuns, mergeRuns: mergeRuns, kernel: kernel, dilateRows: dilateRows,
-            prepareShape: prepareShape, Grid: Grid, pack: pack, packSheets: packSheets, rotVec: rotVec
+            prepareShape: prepareShape, Grid: Grid, pack: pack, packSheets: packSheets, rotVec: rotVec,
+            fill: fill, rectRows: rectRows
         };
     })();
     // === NEST END ===
@@ -1054,6 +1131,12 @@
             return lengthPt / priceUnitPt * price;
         }
 
+        // Celda de CSV con comillas si hace falta.
+        function csvCell(v) {
+            var t = String(v);
+            return /[",\r\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t;
+        }
+
         function safeFileName(s) {
             return String(s).replace(/[\\\/:*?"<>|]+/g, "_").replace(/\s+/g, "_");
         }
@@ -1111,7 +1194,7 @@
 
         return {
             round: round, parseNum: parseNum, parseList: parseList, formatList: formatList,
-            qtyFromName: qtyFromName, pickLength: pickLength, cost: cost, safeFileName: safeFileName,
+            qtyFromName: qtyFromName, pickLength: pickLength, cost: cost, safeFileName: safeFileName, csvCell: csvCell,
             trim: trim, labelFromNote: labelFromNote, noteWithLabel: noteWithLabel,
             labeledSize: labeledSize, labelSlots: labelSlots
         };
@@ -1130,6 +1213,8 @@
     var MIN_TEXT_PT = 6;
     var PREFLIGHT_MAX_NODES = 20000;
     var LABEL_LAYER = "Etiquetas de talla";
+    var ORDER_LAYER = "Datos del pedido";
+    var FILL_CELL_MM = 2; // cuadrícula del relleno de huecos (modo rectángulos)
     var SHEET_PREFIX = "Gangsheet - Hoja ";
     var SHEET_GAP = 56.69; // pt (2 cm) entre hojas
     var SHAPE_CELLS_MM = [1, 2, 3, 5]; // precisión del acomodo por forma
@@ -1159,6 +1244,7 @@
             exportPng: false, ppi: 300,
             preflight: true, minPpi: 300, minLine: 0.5 * UNITS.mm,
             labelPt: 7, labelOffset: 1.5 * UNITS.mm,
+            fillMax: 0, orderLabel: false, orderText: "", csv: false, eps: false, epsOutline: true,
             multiSheet: false, maxLength: 300 * UNITS.cm, maxSheets: 20, showOnCanvas: true,
             method: 0, shapeCell: 1
         };
@@ -1191,7 +1277,7 @@
 
     function layerUsable(layer) {
         while (layer && layer.typename === "Layer") {
-            if (layer.locked || !layer.visible || layer.name === LABEL_LAYER) return false;
+            if (layer.locked || !layer.visible || layer.name === LABEL_LAYER || layer.name === ORDER_LAYER) return false;
             layer = layer.parent;
         }
         return true;
@@ -1229,7 +1315,7 @@
     function collectAll() {
         var out = [];
         function walk(layer) {
-            if (layer.locked || !layer.visible || layer.name === LABEL_LAYER) return;
+            if (layer.locked || !layer.visible || layer.name === LABEL_LAYER || layer.name === ORDER_LAYER) return;
             var i, it;
             for (i = 0; i < layer.pageItems.length; i++) {
                 it = layer.pageItems[i];
@@ -1635,6 +1721,18 @@
         pLabel.add("statictext", undefined, "Las etiquetas van en la capa \"" + LABEL_LAYER + "\" (ocúltala si no quieres imprimirlas).");
         tQty.add("statictext", undefined, "Tip: un nombre terminado en \"x10\" (p. ej. \"Logo x10\") toma 10 copias automáticamente.");
 
+        var pFill = tQty.add("panel", undefined, "Rellenar huecos (al final, sin alargar la hoja)");
+        pFill.alignChildren = "left";
+        var gFill = pFill.add("group");
+        gFill.add("statictext", undefined, "Con copias de:");
+        var ddFill = gFill.add("dropdownlist", undefined, ["(no rellenar)"]);
+        ddFill.selection = 0;
+        ddFill.preferredSize.width = 230;
+        gFill.add("statictext", undefined, "hasta");
+        var etFillMax = gFill.add("edittext", undefined, String(cfg.fillMax));
+        etFillMax.characters = 4;
+        gFill.add("statictext", undefined, "copias (0 = sin límite)");
+
         function currentRows() { return rbSel.value ? rowsSel : rowsAll; }
         function setCurrentRows(r) { if (rbSel.value) rowsSel = r; else rowsAll = r; }
         function currentPieces() { return rbSel.value ? info.sel : info.all; }
@@ -1650,6 +1748,15 @@
             stTotal.text = "Total a acomodar: " + t + " pieza(s) de " + currentPieces().length + " diseño(s)";
         }
 
+        // Opciones de relleno: una por fila (diseño + talla).
+        function fillChoices() {
+            var rows = currentRows(), prev = ddFill.selection ? ddFill.selection.index : 0, i;
+            ddFill.removeAll();
+            ddFill.add("item", "(no rellenar)");
+            for (i = 0; i < rows.length; i++) ddFill.add("item", rows[i].piece.name + (rows[i].label ? " \u00B7 " + rows[i].label : ""));
+            ddFill.selection = prev < ddFill.items.length ? prev : 0;
+        }
+
         function fillList(keepSel) {
             var rows = currentRows(), i, li;
             lb.removeAll();
@@ -1663,6 +1770,7 @@
                 for (i = 0; i < keepSel.length; i++) if (keepSel[i] < lb.items.length) lb.items[keepSel[i]].selected = true;
             }
             updateTotal();
+            fillChoices();
         }
 
         function selectedIndexes() {
@@ -1870,6 +1978,23 @@
         luLine.characters = 4;
         unitLabels.push(luLine);
 
+        var pOrd = tOut.add("panel", undefined, "Pedido y archivos");
+        pOrd.alignChildren = "left";
+        var gOrd = pOrd.add("group");
+        var cbOrder = gOrd.add("checkbox", undefined, "Etiqueta del pedido en cada hoja:");
+        cbOrder.value = cfg.orderLabel;
+        var etOrder = gOrd.add("edittext", undefined, cfg.orderText);
+        etOrder.characters = 22;
+        pOrd.add("statictext", undefined, "    Se agrega la fecha y \"Hoja n/N\"; su espacio se reserva en la esquina superior.");
+        var cbCsv = pOrd.add("checkbox", undefined, "Guardar resumen de piezas por hoja y talla (.csv)");
+        cbCsv.value = cfg.csv;
+        var gEps = pOrd.add("group");
+        var cbEps = gEps.add("checkbox", undefined, "Exportar EPS vectorial (uno por hoja)");
+        cbEps.value = cfg.eps;
+        var cbOutline = gEps.add("checkbox", undefined, "textos a contornos");
+        cbOutline.value = cfg.epsOutline;
+        pOrd.add("statictext", undefined, "    Los archivos se guardan en la carpeta del documento.");
+
         // ---- Sincronización ----
         function fixedLabel() {
             return "Mesa de trabajo actual (" + round(info.abW / UNITS[unit], 2) + " x " +
@@ -1888,10 +2013,12 @@
             etPpi.enabled = cbExport.value;
             gCell.enabled = ddMethod.selection.index === 1;
             gPre.enabled = cbPre.value;
+            etOrder.enabled = cbOrder.value;
+            cbOutline.enabled = cbEps.value;
         }
         rbStrip.onClick = function () { rbFixed.value = false; syncMode(); };
         rbFixed.onClick = function () { rbStrip.value = false; syncMode(); };
-        cbResize.onClick = cbExport.onClick = cbPre.onClick = cbMulti.onClick = syncMode;
+        cbResize.onClick = cbExport.onClick = cbPre.onClick = cbMulti.onClick = cbOrder.onClick = cbEps.onClick = syncMode;
         ddLen.onChange = ddMethod.onChange = syncMode;
         if (cfg.mode === "fixed") rbFixed.value = true; else rbStrip.value = true;
 
@@ -1977,6 +2104,13 @@
                 maxLength: maxLen === null ? cfg.maxLength : maxLen * k,
                 maxSheets: isNaN(maxSheets) ? cfg.maxSheets : maxSheets,
                 showOnCanvas: cbShow.value,
+                fillRow: ddFill.selection && ddFill.selection.index > 0 ? rows[ddFill.selection.index - 1] : null,
+                fillMax: Math.max(0, parseInt(etFillMax.text, 10) || 0),
+                orderLabel: cbOrder.value,
+                orderText: Utils.trim(etOrder.text),
+                csv: cbCsv.value,
+                eps: cbEps.value,
+                epsOutline: cbOutline.value,
                 method: ddMethod.selection.index,
                 shapeCell: ddCell.selection.index,
                 rows: rows
@@ -2158,6 +2292,76 @@
         };
     }
 
+    // Carpeta de salida: se pregunta una sola vez para PNG, CSV y EPS.
+    var outBase = null;
+    function getOutBase() {
+        if (outBase === null) outBase = exportBase() || false;
+        return outBase;
+    }
+
+    function writeText(file, text) {
+        try {
+            file.encoding = "UTF-8";
+            if (!file.open("w")) return false;
+            file.write("\uFEFF" + text); // BOM: Excel lo abre con acentos correctos
+            file.close();
+            return true;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    // EPS de una hoja: copia lo visible sobre la mesa de trabajo a un documento
+    // temporal del tamaño de la hoja y lo guarda como EPS (el .ai no cambia).
+    function exportEps(rect, file, outline) {
+        var items = [], tmp = null, err = "", i, first = null, dup, rb, nb, dx, dy, o;
+        function walk(layer) {
+            if (!layer.visible) return;
+            var k, it, b;
+            for (k = 0; k < layer.pageItems.length; k++) {
+                it = layer.pageItems[k];
+                if (!isTopLevel(it) || it.hidden) continue;
+                b = it.visibleBounds;
+                if (b[0] < rect[2] && b[2] > rect[0] && b[3] < rect[1] && b[1] > rect[3]) items.push(it);
+            }
+            for (k = 0; k < layer.layers.length; k++) walk(layer.layers[k]);
+        }
+        for (i = 0; i < doc.layers.length; i++) walk(doc.layers[i]);
+        if (!items.length) return { error: "la hoja está vacía" };
+        try {
+            tmp = app.documents.add(doc.documentColorSpace);
+            rb = items[0].visibleBounds;
+            for (i = 0; i < items.length; i++) {
+                dup = items[i].duplicate(tmp.layers[0], ElementPlacement.PLACEATEND);
+                try { dup.locked = false; } catch (e0) { }
+                if (!first) first = dup;
+            }
+            // Las coordenadas pueden cambiar entre documentos: se corrige con la primera pieza.
+            nb = first.visibleBounds;
+            dx = nb[0] - rb[0];
+            dy = nb[1] - rb[1];
+            tmp.artboards[0].artboardRect = [rect[0] + dx, rect[1] + dy, rect[2] + dx, rect[3] + dy];
+            if (outline) {
+                for (i = tmp.textFrames.length - 1; i >= 0; i--) {
+                    try { tmp.textFrames[i].createOutline(); } catch (e1) { }
+                }
+            }
+            o = new EPSSaveOptions();
+            o.embedAllFonts = true;
+            o.embedLinkedFiles = true;
+            o.includeDocumentThumbnails = false;
+            o.saveMultipleArtboards = false;
+            if (doc.documentColorSpace === DocumentColorSpace.CMYK) o.cmykPostScript = true;
+            if (file.exists) file.remove();
+            tmp.saveAs(file, o);
+        } catch (e2) {
+            err = e2.message;
+        }
+        if (tmp) { try { tmp.close(SaveOptions.DONOTSAVECHANGES); } catch (e3) { } }
+        try { doc.activate(); } catch (e4) { }
+        return err ? { error: err } : (file.exists ? { file: file } : { error: "Illustrator no creó el archivo" });
+    }
+
     // ------------------------------ Lienzo ------------------------------
     // Coloca la mesa de trabajo con el tamaño w x h lo más cerca posible de su
     // posición actual sin salirse del lienzo. Devuelve el nuevo borde superior
@@ -2237,21 +2441,22 @@
     var opts = showDialog(cfg, { sel: selPieces, all: allPieces, abW: abW, abH: abH, highlight: highlightPieces });
     if (!opts) { restoreSelection(); return; }
     restoreSelection();
-    var stdPt = opts.stdPt, rows = opts.rows;
+    var stdPt = opts.stdPt, rows = opts.rows, fillRow = opts.fillRow;
     delete opts.stdPt;
     delete opts.rows;
+    delete opts.fillRow;
     saveConfig(opts);
 
     // Diseños a acomodar y total de copias por diseño (sumando sus tallas).
     var pieces = [], i, j;
     for (i = 0; i < rows.length; i++) {
-        if (rows[i].qty <= 0) continue;
+        if (rows[i].qty <= 0 && rows[i] !== fillRow) continue;
         if (rows[i].piece.total === undefined) {
             rows[i].piece.total = 0;
             rows[i].piece.idx = pieces.length;
             pieces.push(rows[i].piece);
         }
-        rows[i].piece.total += rows[i].qty;
+        rows[i].piece.total += Math.max(0, rows[i].qty);
     }
 
     // Revisión previa
@@ -2293,6 +2498,7 @@
 
     function dropEmptyLabelLayer() {
         try { if (labelLayer && !labelLayer.pageItems.length) labelLayer.remove(); } catch (e) { }
+        try { if (orderLayer && !orderLayer.pageItems.length) orderLayer.remove(); } catch (e2) { }
     }
 
     function makeLabel(text) {
@@ -2307,7 +2513,7 @@
     }
 
     for (i = 0; i < rows.length; i++) {
-        if (rows[i].qty > 0 && rows[i].label && !labelSize[rows[i].label]) {
+        if ((rows[i].qty > 0 || rows[i] === fillRow) && rows[i].label && !labelSize[rows[i].label]) {
             var probe = makeLabel(rows[i].label), pb = probe.geometricBounds;
             labelSize[rows[i].label] = { w: pb[2] - pb[0], h: pb[1] - pb[3] };
             probe.remove();
@@ -2315,15 +2521,104 @@
         }
     }
 
-    // Quita las etiquetas de una ejecución anterior que estén sobre un rectángulo.
+    // ------------------------- Etiqueta del pedido ---------------------
+    var orderLayer = null;
+    function getOrderLayer(create) {
+        if (orderLayer) return orderLayer;
+        try { orderLayer = doc.layers.getByName(ORDER_LAYER); } catch (e) { orderLayer = null; }
+        if (!orderLayer && create) {
+            orderLayer = doc.layers.add();
+            orderLayer.name = ORDER_LAYER;
+        }
+        if (orderLayer) {
+            orderLayer.locked = false;
+            orderLayer.visible = true;
+        }
+        return orderLayer;
+    }
+
+    function makeOrderLabel(text) {
+        var tf = getOrderLayer(true).textFrames.add();
+        tf.contents = text;
+        var ca = tf.textRange.characterAttributes;
+        ca.size = 8;
+        if (labelFont) ca.textFont = labelFont;
+        ca.fillColor = labelColor;
+        try { tf.name = "Pedido"; } catch (e) { }
+        return tf;
+    }
+
+    function two(n) { return (n < 10 ? "0" : "") + n; }
+    var today = new Date();
+    var orderPrefix = (opts.orderText ? opts.orderText + " \u00B7 " : "") +
+        two(today.getDate()) + "/" + two(today.getMonth() + 1) + "/" + today.getFullYear() + " \u00B7 Hoja ";
+
+    // Quita etiquetas y datos de pedido de una ejecución anterior sobre un rectángulo.
     function removeLabelsIn(r) {
-        if (!getLabelLayer(false)) return;
-        for (var k = labelLayer.pageItems.length - 1; k >= 0; k--) {
-            var lbb = labelLayer.pageItems[k].visibleBounds;
-            if (lbb[0] < r[2] && lbb[2] > r[0] && lbb[3] < r[1] && lbb[1] > r[3]) labelLayer.pageItems[k].remove();
+        var lays = [getLabelLayer(false), getOrderLayer(false)], li, lay, k, lbb;
+        for (li = 0; li < lays.length; li++) {
+            lay = lays[li];
+            if (!lay) continue;
+            for (k = lay.pageItems.length - 1; k >= 0; k--) {
+                lbb = lay.pageItems[k].visibleBounds;
+                if (lbb[0] < r[2] && lbb[2] > r[0] && lbb[3] < r[1] && lbb[1] > r[3]) lay.pageItems[k].remove();
+            }
         }
     }
     removeLabelsIn(ab);
+
+    // Objetos fijos: lo bloqueado sobre la mesa de trabajo (o en capas
+    // bloqueadas) se respeta como obstáculo. Coordenadas de la hoja.
+    function collectObstacles(r) {
+        var out = [];
+        function locked(it) {
+            if (it.locked) return true;
+            var l = it.parent;
+            while (l && l.typename === "Layer") { if (l.locked) return true; l = l.parent; }
+            return false;
+        }
+        function walk(layer) {
+            if (!layer.visible || layer.name === LABEL_LAYER || layer.name === ORDER_LAYER) return;
+            var i, it, b;
+            for (i = 0; i < layer.pageItems.length; i++) {
+                it = layer.pageItems[i];
+                if (!isTopLevel(it) || it.hidden || !locked(it)) continue;
+                if (it.typename === "PathItem" && it.guides) continue;
+                b = getBounds(it);
+                if (!(b[0] < r[2] && b[2] > r[0] && b[3] < r[1] && b[1] > r[3])) continue;
+                out.push({
+                    x: Math.max(b[0], r[0]) - r[0], y: r[1] - Math.min(b[1], r[1]),
+                    w: Math.min(b[2], r[2]) - Math.max(b[0], r[0]), h: Math.min(b[1], r[1]) - Math.max(b[3], r[3])
+                });
+            }
+            for (i = 0; i < layer.layers.length; i++) walk(layer.layers[i]);
+        }
+        for (var i = 0; i < doc.layers.length; i++) walk(doc.layers[i]);
+        return out;
+    }
+    var fixedObs = collectObstacles(ab), orderObs = [];
+    if (opts.orderLabel) {
+        // Se mide con el texto más largo posible para reservar su espacio.
+        var oprobe = makeOrderLabel(orderPrefix + "99/99"), ob = oprobe.geometricBounds;
+        orderObs.push({ x: opts.margin, y: opts.margin, w: ob[2] - ob[0], h: ob[1] - ob[3] });
+        oprobe.remove();
+    }
+
+    // Obstáculos en celdas de la cuadrícula (acomodo por forma y relleno).
+    function obsCells(list, c) {
+        var out = [], i, o, x0, y0;
+        for (i = 0; i < list.length; i++) {
+            o = list[i];
+            x0 = Math.floor((o.x - opts.margin) / c);
+            y0 = Math.floor((o.y - opts.margin) / c);
+            out.push({
+                x: x0, y: y0,
+                w: Math.ceil((o.x + o.w - opts.margin) / c - 1e-6) - x0,
+                h: Math.ceil((o.y + o.h - opts.margin) / c - 1e-6) - y0
+            });
+        }
+        return out;
+    }
 
     // Cada copia es un rectángulo independiente (diseño + etiqueta).
     var copies = [], packItems = [], sz, ls;
@@ -2361,7 +2656,9 @@
         margin: opts.margin,
         allowRotate: opts.rotation > 0,
         quality: ["fast", "normal", "best"][opts.quality],
-        onProgress: function (d, t, m) { progressWin.update(d, t, m); }
+        onProgress: function (d, t, m) { progressWin.update(d, t, m); },
+        obstacles: opts.multiSheet ? fixedObs : fixedObs.concat(orderObs),
+        obstaclesEvery: orderObs
     };
     // sheets: [{placements, height}] — una entrada por hoja.
     var sheets = [], res, cellPt = SHAPE_CELLS_MM[opts.shapeCell] * UNITS.mm, shapeGeo = {}, shapeFails = 0;
@@ -2377,7 +2674,10 @@
             }
             var gridW = Math.floor((packOpts.width - 2 * opts.margin) / cellPt + 1e-6);
             var gridH = Math.floor(((opts.mode === "fixed" ? abH : opts.multiSheet ? opts.maxLength : MAX_CANVAS - 1) - 2 * opts.margin) / cellPt + 1e-6);
-            var nestOpts = { gridW: gridW, gridH: gridH, quality: packOpts.quality, maxSheets: opts.maxSheets, onProgress: packOpts.onProgress };
+            var nestOpts = {
+                gridW: gridW, gridH: gridH, quality: packOpts.quality, maxSheets: opts.maxSheets, onProgress: packOpts.onProgress,
+                obstacles: obsCells(packOpts.obstacles, cellPt), obstaclesEvery: obsCells(orderObs, cellPt)
+            };
             var nres = opts.multiSheet ? Nest.packSheets(nestItems, nestOpts) : { sheets: [Nest.pack(nestItems, nestOpts)] };
             res = { unplaced: nres.unplaced || nres.sheets[0].unplaced };
             for (i = 0; i < nres.sheets.length; i++) {
@@ -2422,6 +2722,62 @@
         if (sheets[s].h > maxH) maxH = sheets[s].h;
     }
 
+    // ------------------------- Rellenar huecos --------------------------
+    // Con la hoja ya medida, agrega copias del diseño elegido donde quepan
+    // sin alargarla (incluye el espacio extra de un largo redondeado o estándar).
+    var fillCount = 0;
+    if (fillRow && sheets.length) {
+        var fp = fillRow.piece, fl = fillRow.label, fKey = fp.idx + "|" + fl, fCell, fShape, fGridW;
+        if (shapeMode) {
+            fCell = cellPt;
+            if (!shapeGeo[fKey]) shapeGeo[fKey] = shapeGeometry(fp, fl, cellPt, Nest.kernel(opts.gap, cellPt), packOpts.allowRotate);
+            fShape = shapeGeo[fKey].shape;
+        } else {
+            fCell = FILL_CELL_MM * UNITS.mm;
+            var fls = fl ? labelSize[fl] : null;
+            var fsz = Utils.labeledSize(fp.w, fp.h, fls && fls.w, fls && fls.h, opts.labelOffset);
+            fShape = Nest.prepareShape(Nest.fullMask(Math.ceil(fsz.w / fCell - 1e-6), Math.ceil(fsz.h / fCell - 1e-6)),
+                Nest.kernel(opts.gap, fCell), packOpts.allowRotate);
+        }
+        fGridW = Math.floor((sheetW - 2 * opts.margin) / fCell + 1e-6);
+        for (s = 0; s < sheets.length; s++) {
+            if (opts.fillMax && fillCount >= opts.fillMax) break;
+            var occ = [], pp, x0, y0, rr, extra;
+            for (i = 0; i < sheets[s].placements.length; i++) {
+                pp = sheets[s].placements[i];
+                if (shapeMode) {
+                    for (rr = 0; rr < shapeGeo[copies[pp.id].key].shape.rots.length; rr++) {
+                        if (shapeGeo[copies[pp.id].key].shape.rots[rr].k === pp.k) {
+                            occ.push({ rows: shapeGeo[copies[pp.id].key].shape.rots[rr].rows, x: pp.x, y: pp.y });
+                        }
+                    }
+                } else {
+                    x0 = Math.floor((pp.x - opts.margin) / fCell);
+                    y0 = Math.floor((pp.y - opts.margin) / fCell);
+                    occ.push({
+                        rows: Nest.rectRows(Math.ceil((pp.x + pp.w - opts.margin) / fCell - 1e-6) - x0,
+                            Math.ceil((pp.y + pp.h - opts.margin) / fCell - 1e-6) - y0),
+                        x: x0, y: y0
+                    });
+                }
+            }
+            extra = Nest.fill({
+                gridW: fGridW, gridH: Math.floor((sheets[s].h - 2 * opts.margin) / fCell + 1e-6),
+                obstacles: obsCells((s === 0 ? fixedObs : []).concat(orderObs), fCell),
+                occupied: occ, shape: fShape, max: opts.fillMax ? opts.fillMax - fillCount : 0
+            });
+            for (i = 0; i < extra.length; i++) {
+                copies.push({ piece: fp, label: fl, key: fKey });
+                sheets[s].placements.push(shapeMode ?
+                    { id: copies.length - 1, x: extra[i].x, y: extra[i].y, k: extra[i].k, w: extra[i].w, h: extra[i].h } :
+                    { id: copies.length - 1, x: opts.margin + extra[i].x * fCell, y: opts.margin + extra[i].y * fCell,
+                      w: extra[i].w * fCell, h: extra[i].h * fCell, rotated: extra[i].k % 2 === 1 });
+                fillCount += 1;
+            }
+        }
+        fp.total += fillCount;
+    }
+
     var originX = ab[0], originY = ab[1];
     if (sheets.length && opts.mode === "strip") {
         var sizeTxt = round(sheetW / kk, 1) + " x " + round(maxH / kk, 1) + " " + u;
@@ -2441,6 +2797,13 @@
             return;
         }
         originY = top;
+        if (fixedObs.length && Math.abs(originY - ab[1]) > 0.5) {
+            alert("La hoja no cabe hacia abajo en el lienzo y habría que subir la mesa de trabajo, pero hay objetos " +
+                "fijos (bloqueados) sobre ella que no se pueden mover.\n\nSube la mesa de trabajo y esos objetos, " +
+                "o usa \"Varias hojas\". No se modificó nada.", SCRIPT_NAME);
+            dropEmptyLabelLayer();
+            return;
+        }
         if (Math.abs(originY - ab[1]) > 0.5) {
             lengthNote += "\n(La mesa de trabajo se subió para que la hoja quepa en el lienzo de Illustrator.)";
         }
@@ -2572,11 +2935,19 @@
         }
     }
 
+    // Etiqueta del pedido en la esquina superior izquierda de cada hoja.
+    if (opts.orderLabel) {
+        for (s = 0; s < sheets.length; s++) {
+            var otf = makeOrderLabel(orderPrefix + (s + 1) + "/" + sheets.length), obb = getBounds(otf);
+            otf.translate(sheets[s].x + opts.margin - obb[0], sheets[s].y - opts.margin - obb[1]);
+        }
+    }
+
     // Diseños sin ninguna copia acomodada: el original se aparta a la derecha.
     var leftovers = [], missingCopies = 0;
     for (i = 0; i < pieces.length; i++) {
         missingCopies += pieces[i].total - placedCount[i];
-        if (!placedCount[i]) leftovers.push(pieces[i]);
+        if (!placedCount[i] && pieces[i].total > 0) leftovers.push(pieces[i]);
     }
     if (leftovers.length) {
         var colX = Math.max(ab[2], lastRight) + 36, curY = originY, colW = 0, nb;
@@ -2590,6 +2961,10 @@
             curY -= piece.h + 36;
             if (piece.w > colW) colW = piece.w;
         }
+    }
+    if (orderLayer) {
+        orderLayer.zOrder(ZOrderMethod.BRINGTOFRONT);
+        if (!orderLayer.pageItems.length) orderLayer.remove();
     }
     if (labelLayer) {
         labelLayer.zOrder(ZOrderMethod.BRINGTOFRONT);
@@ -2633,6 +3008,9 @@
         msg += "\nMétodo: forma real (precisión " + SHAPE_CELLS_MM[opts.shapeCell] + " mm)";
         if (shapeFails) msg += "\n" + shapeFails + " diseño(s) sin silueta legible: se usó su rectángulo.";
     }
+    if (fillCount) msg += "\nRelleno: " + fillCount + " copia(s) extra de " + fillRow.piece.name + (fillRow.label ? " \u00B7 " + fillRow.label : "") + ".";
+    if (fillRow && !fillCount) msg += "\nRelleno: no quedó espacio para copias extra.";
+    if (fixedObs.length) msg += "\nObjetos fijos respetados: " + fixedObs.length + ".";
     msg += preflightNote;
     if (droppedSheets) {
         msg += "\n\nNo cupieron " + droppedSheets + " hoja(s) más en el lienzo de Illustrator; " +
@@ -2649,7 +3027,7 @@
 
     // Exportar PNG (uno por hoja)
     if (opts.exportPng && sheets.length) {
-        var base = exportBase();
+        var base = getOutBase();
         if (base) {
             var exported = [], failed = [];
             for (s = 0; s < sheets.length; s++) {
@@ -2667,6 +3045,42 @@
             }
             if (failed.length) msg += "\n\nNo se pudo exportar:\n" + failed.join("\n");
         }
+    }
+
+    // Resumen de piezas (.csv)
+    var shW3 = opts.mode === "strip" || sized ? sheetW : abW;
+    if (opts.csv && sheets.length && getOutBase()) {
+        var csvRows = ["Hoja,Diseño,Talla,Copias,Ancho (" + u + "),Largo (" + u + ")"], tally, order2, key2, cp2;
+        for (s = 0; s < sheets.length; s++) {
+            tally = {}; order2 = [];
+            for (i = 0; i < sheets[s].placements.length; i++) {
+                cp2 = copies[sheets[s].placements[i].id];
+                key2 = cp2.piece.name + "\u0000" + (cp2.label || "");
+                if (!tally[key2]) { tally[key2] = { name: cp2.piece.name, label: cp2.label || "", n: 0 }; order2.push(key2); }
+                tally[key2].n += 1;
+            }
+            for (i = 0; i < order2.length; i++) {
+                csvRows.push([s + 1, Utils.csvCell(tally[order2[i]].name), Utils.csvCell(tally[order2[i]].label),
+                    tally[order2[i]].n, round(shW3 / kk, 2), round(sheets[s].h / kk, 2)].join(","));
+            }
+        }
+        var csvFile = File(outBase.folder.fsName + "/" + Utils.safeFileName(outBase.name + "_resumen") + ".csv");
+        msg += writeText(csvFile, csvRows.join("\r\n")) ?
+            "\n\nResumen guardado: " + decodeURI(csvFile.name) : "\n\nNo se pudo guardar el resumen .csv.";
+    }
+
+    // EPS vectorial (uno por hoja)
+    if (opts.eps && sheets.length && getOutBase()) {
+        var epsOk = [], epsBad = [];
+        for (s = 0; s < sheets.length; s++) {
+            var en = outBase.name + (sheets.length > 1 ? "_hoja" + (s + 1) : "") + "_" +
+                round(shW3 / kk, 1) + "x" + round(sheets[s].h / kk, 1) + u;
+            var er = exportEps(doc.artboards[sheets[s].abIndex].artboardRect,
+                File(outBase.folder.fsName + "/" + Utils.safeFileName(en) + ".eps"), opts.epsOutline);
+            if (er.file) epsOk.push(decodeURI(er.file.name)); else epsBad.push("Hoja " + (s + 1) + ": " + er.error);
+        }
+        if (epsOk.length) msg += "\n\nEPS vectorial guardado(s):\n" + epsOk.join("\n");
+        if (epsBad.length) msg += "\n\nNo se pudo exportar el EPS:\n" + epsBad.join("\n");
     }
 
     alert(msg, SCRIPT_NAME);

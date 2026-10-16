@@ -53,6 +53,11 @@ Armar un gangsheet a mano es lento y desperdicia película. AutoSort hace tres c
 | **Revisión previa** | Baja resolución, vínculos rotos, líneas muy finas y textos sin convertir a contornos. |
 | **Largo y costo** | Largo exacto, redondeado o tamaño estándar; costo estimado por cm, m, in o ft. |
 | **PNG para el RIP** | PNG transparente a la resolución que elijas, uno por hoja. |
+| **EPS vectorial** | Un EPS por hoja para imprimir en vectores, con textos a contornos e imágenes incrustadas. |
+| **Rellenar huecos** | Al final agrega copias extra de un diseño en el espacio libre, sin alargar la hoja. |
+| **Objetos fijos** | Lo bloqueado sobre la mesa de trabajo (logo del taller, marcas) se respeta y las piezas lo rodean. |
+| **Etiqueta del pedido** | Pedido o cliente, fecha y "Hoja n/N" en la esquina de cada hoja, con su espacio reservado. |
+| **Resumen .csv** | Piezas por hoja, diseño y talla, para verificar al empacar. |
 
 ## Instalación
 
@@ -78,6 +83,14 @@ Armar un gangsheet a mano es lento y desperdicia película. AutoSort hace tres c
 Cada copia lleva una etiqueta pequeña con su talla, en la capa **`Etiquetas de talla`**. La talla también se guarda en la nota del objeto, así que al volver a ejecutar el script cada copia la conserva. Un nombre que termina en `x10` (por ejemplo `Logo x10`) toma 10 copias automáticamente.
 
 > La etiqueta **se imprime en la película**. Queda separada del diseño para recortarla, o puedes ocultar la capa antes de imprimir o exportar.
+
+### Objetos fijos
+
+Bloquea (Ctrl+2) lo que no se debe mover y déjalo sobre la mesa de trabajo: el logo del taller, una marca o un diseño ya colocado. El script lo trata como obstáculo y acomoda alrededor, respetando la separación. Funciona en ambos métodos y en la primera hoja.
+
+### Rellenar huecos
+
+En **Cantidades → Rellenar huecos** eliges un diseño (y su talla). Después de acomodar, el script agrega copias de ese diseño en cada hueco donde quepan, **sin alargar la hoja**; también aprovecha el espacio extra si redondeas el largo o usas un tamaño estándar. Puedes poner un tope de copias.
 
 ### Varias hojas
 
@@ -111,6 +124,7 @@ Con **Varias hojas** activado, lo que no cabe continúa en mesas de trabajo `Gan
 | Asignar talla / Agregar talla | Pone una talla a las filas, o crea otra fila del mismo diseño. |
 | Quitar fila / Reiniciar lista | Quita filas o vuelve al estado inicial. |
 | Mostrar en el lienzo | Selecciona y centra la pieza elegida. |
+| Rellenar huecos | Diseño (y talla) con el que se llenan los huecos al final, con tope opcional de copias (0 = sin límite). |
 
 </details>
 
@@ -124,6 +138,9 @@ Con **Varias hojas** activado, lo que no cabe continúa en mesas de trabajo `Gan
 | Costo estimado | Precio por cm, m, in o ft de largo (0 = no calcular). |
 | Exportar PNG | PNG transparente a N ppi (300 por defecto), uno por hoja, en la carpeta del documento. |
 | Revisión previa | Resolución mínima (ppi) y grosor mínimo de línea. |
+| Etiqueta del pedido | Texto del pedido o cliente; se agrega la fecha y "Hoja n/N" en la esquina superior izquierda. |
+| Resumen .csv | Guarda `<documento>_resumen.csv` con hoja, diseño, talla y copias. |
+| Exportar EPS vectorial | Un `.eps` por hoja; opción de convertir textos a contornos. |
 
 </details>
 
@@ -134,11 +151,16 @@ Con **Varias hojas** activado, lo que no cabe continúa en mesas de trabajo `Gan
 
 En pruebas con una silueta de flecha de 10 × 25 cm, 20 copias en un rollo de 58 cm pasaron de **102.7 cm a 52.2 cm** de largo. El ahorro real depende de la forma de tus diseños, y con precisión de 1 mm el cálculo es notablemente más lento.
 
+## PNG o EPS
+
+- **PNG**: imagen transparente a la resolución elegida; es lo que piden la mayoría de los RIP de DTF.
+- **EPS**: conserva los **vectores**, así que se imprime nítido a cualquier tamaño. El script copia cada hoja a un documento temporal del tamaño exacto de la hoja y lo guarda como EPS, con las imágenes vinculadas incrustadas y, si lo eliges, los textos convertidos a contornos para no depender de las fuentes. Tu `.ai` no cambia. Las capas ocultas (por ejemplo, las etiquetas de talla si las ocultas) no se incluyen.
+
 ## Límites y notas
 
 - El lienzo de Illustrator mide ~577 × 577 cm y ninguna mesa de trabajo puede salirse de él. Si la hoja no cabe hacia abajo, el script sube la mesa de trabajo; si es más larga que el lienzo, avisa (sin modificar nada) y sugiere **Varias hojas**.
 - Se usan los **límites visibles** (incluyen el grosor del trazo).
-- Se ignoran objetos bloqueados, ocultos o en capas bloqueadas/ocultas. En modo *Selección*, el resto del documento no se toma en cuenta.
+- Los objetos ocultos o en capas ocultas se ignoran. Los **bloqueados** sobre la mesa de trabajo no se mueven: se respetan como obstáculos. Si la hoja tuviera que subirse para caber en el lienzo y hay objetos fijos, el script avisa sin modificar nada.
 - Exportar PNG usa *Exportar para pantallas* (CC 2018+) y, en versiones anteriores, *imageCapture*. Hojas muy largas a 300 ppi generan imágenes enormes (58 × 500 cm ≈ 6850 × 59000 px) y pueden fallar por memoria.
 
 ## Preguntas frecuentes
@@ -147,6 +169,13 @@ En pruebas con una silueta de flecha de 10 × 25 cm, 20 copias en un rollo de 58
 <summary><b>¿Por qué es para Illustrator y no para Photoshop?</b></summary>
 
 Porque en el departamento donde trabajo se trabaja sobre todo con vectores: logos, textos y arte que deben verse nítidos a cualquier tamaño y cortarse limpio. Illustrator es donde ya viven esos archivos, así que hice AutoSort ahí para mejorar la calidad de mi trabajo, sin convertir ni aplanar nada en el camino.
+
+</details>
+
+<details>
+<summary><b>¿Para qué sirve el EPS si ya exporta PNG?</b></summary>
+
+El PNG es una imagen: a 300 ppi se ve bien, pero los bordes de logos y textos dependen de esa resolución. El EPS guarda los vectores, así que el RIP los imprime con el máximo detalle a cualquier tamaño. Úsalo si tu RIP acepta EPS; si no, el PNG sigue disponible.
 
 </details>
 
