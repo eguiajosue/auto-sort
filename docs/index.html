@@ -195,6 +195,47 @@ footer{padding:30px 0 44px;color:var(--ink-faint);font-size:14px}
 footer .wrap{display:flex;flex-wrap:wrap;gap:18px;justify-content:space-between}
 footer a{color:var(--ink-dim)}
 
+
+/* ---------- simulador ---------- */
+.sim{display:grid;grid-template-columns:minmax(0,340px) minmax(0,1fr);gap:48px;align-items:start}
+.ctl{display:grid;gap:26px}
+.ctl fieldset{border:0;padding:0;margin:0;min-width:0}
+.ctl legend{font-weight:600;margin-bottom:10px;padding:0}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chips input{position:absolute;opacity:0;pointer-events:none}
+.chips label{display:flex;align-items:center;gap:8px;padding:9px 14px;border:1px solid var(--grid-strong);border-radius:3px;cursor:pointer;color:var(--ink-dim);font-size:15px;transition:border-color .15s var(--out),color .15s var(--out),background .15s var(--out)}
+.chips label svg{width:20px;height:20px;flex:none}
+.chips label:hover{color:var(--ink);border-color:var(--ink-faint)}
+.chips input:checked+label{color:var(--ink);border-color:var(--cut);background:rgba(255,91,31,.1)}
+.chips input:focus-visible+label{outline:2px dashed var(--cut);outline-offset:3px}
+.range{display:grid;grid-template-columns:1fr auto;gap:6px 12px;align-items:center}
+.range label{font-weight:600}
+.range output{font-family:var(--mono);color:var(--reg);font-size:14px;font-variant-numeric:tabular-nums}
+.range input[type=range]{grid-column:1/-1;width:100%;accent-color:var(--cut);margin:4px 0 0}
+.toggles{display:grid;gap:12px}
+.check{display:flex;gap:10px;align-items:flex-start;color:var(--ink-dim);cursor:pointer;font-size:15px}
+.check input{accent-color:var(--cut);width:18px;height:18px;margin:2px 0 0;flex:none}
+.out{min-width:0}
+.readout{display:grid;grid-template-columns:repeat(3,1fr);gap:0;border-top:1px solid var(--grid-strong);border-bottom:1px solid var(--grid-strong);margin-bottom:18px}
+.readout div{padding:14px 18px 14px 0}
+.readout div+div{padding-left:18px;border-left:1px dashed var(--grid-strong)}
+.readout dt{color:var(--ink-faint);font-size:13px}
+.readout dd{margin:2px 0 0;font-family:var(--mono);font-size:clamp(1.3rem,2.6vw,1.9rem);font-variant-numeric:tabular-nums;color:var(--ink);letter-spacing:-.02em}
+.readout dd small{font-size:.55em;color:var(--ink-dim);margin-left:4px}
+.readout dd.good{color:var(--reg)}
+.sheetbox{background:var(--mat-2);border:1px solid var(--grid-strong);padding:18px}
+/* la hoja completa siempre cabe en pantalla: si es larga, se ve más angosta */
+.sheetbox svg{display:block;width:100%;height:68vh;max-height:760px}
+#sim-sheet .sh{fill:rgba(239,232,216,.04);stroke:var(--ink-faint);stroke-width:.8;vector-effect:non-scaling-stroke;stroke-dasharray:4 4}
+#sim-sheet .pc{animation:drop .5s var(--out) both}
+@keyframes drop{from{opacity:0;transform:translate(var(--dx,0px),-14px)}}
+#sim-sheet .halo{fill:none;stroke:var(--reg);stroke-opacity:.4;stroke-linejoin:round}
+#sim-sheet .f0{fill:var(--cut)}#sim-sheet .f1{fill:var(--cyan)}#sim-sheet .f2{fill:var(--mag)}#sim-sheet .f3{fill:var(--reg)}
+.simnote{color:var(--ink-faint);font-size:.92rem;margin:14px 0 0;max-width:62ch}
+.simwarn{color:var(--cut-d);font-size:.95rem;min-height:1.5em;margin:10px 0 0}
+@media (max-width:900px){.sim{grid-template-columns:1fr;gap:32px}.readout dd{font-size:1.25rem}}
+@media (prefers-reduced-motion:reduce){#sim-sheet .pc{animation:none}}
+
 /* responsive */
 @media (max-width:900px){
   .bar nav{display:none}
@@ -236,7 +277,7 @@ footer a{color:var(--ink-dim)}
     AutoSort
   </a>
   <nav>
-    <a href="#paso-2">Cómo funciona</a><a href="#funciones">Funciones</a><a href="#instalar">Instalar</a><a href="#opciones">Opciones</a><a href="#faq">Preguntas</a>
+    <a href="#paso-2">Cómo funciona</a><a href="#simulador">Simulador</a><a href="#funciones">Funciones</a><a href="#instalar">Instalar</a><a href="#opciones">Opciones</a><a href="#faq">Preguntas</a>
   </nav>
   <a class="btn" href="download/AutoSort-Gangsheet.jsx" download>Descargar</a>
 </div></header>
@@ -317,6 +358,47 @@ footer a{color:var(--ink-dim)}
     </div>
   </div>
 </section>
+
+<!-- SIMULADOR -->
+<section class="block" id="simulador"><div class="wrap">
+  <h2>Pruébalo aquí mismo.</h2>
+  <p class="sub">Un simulador con el mismo método del script: elige un diseño, cuántas copias y el ancho del rollo, y mira cuánta película se ahorra al encajar las siluetas.</p>
+  <div class="sim">
+    <form class="ctl" onsubmit="return false" aria-label="Controles del simulador">
+      <fieldset>
+        <legend>Diseño</legend>
+        <div class="chips" id="sim-design"></div>
+      </fieldset>
+      <div class="range"><label for="sim-n">Copias</label><output id="o-n" for="sim-n"></output>
+        <input id="sim-n" type="range" min="1" max="30" value="12"></div>
+      <div class="range"><label for="sim-w">Ancho del rollo</label><output id="o-w" for="sim-w"></output>
+        <input id="sim-w" type="range" min="20" max="60" step="1" value="45"></div>
+      <div class="range"><label for="sim-g">Separación de corte</label><output id="o-g" for="sim-g"></output>
+        <input id="sim-g" type="range" min="1" max="10" step="1" value="3"></div>
+      <fieldset>
+        <legend>Método</legend>
+        <div class="chips" id="sim-method">
+          <input type="radio" name="m" id="m-rect" value="rect"><label for="m-rect">Rectángulos</label>
+          <input type="radio" name="m" id="m-shape" value="shape" checked><label for="m-shape">Forma real</label>
+        </div>
+      </fieldset>
+      <div class="toggles">
+        <label class="check"><input type="checkbox" id="sim-rot" checked> Permitir giros de 90°, 180° y 270°</label>
+        <label class="check"><input type="checkbox" id="sim-halo" checked> Ver la separación de corte</label>
+      </div>
+    </form>
+    <div class="out">
+      <dl class="readout" aria-live="polite">
+        <div><dt>Largo de la hoja</dt><dd id="r-len">—</dd></div>
+        <div><dt>Aprovechamiento</dt><dd id="r-use">—</dd></div>
+        <div><dt>Frente a rectángulos</dt><dd id="r-save">—</dd></div>
+      </dl>
+      <div class="sheetbox"><svg id="sim-sheet" role="img" aria-label="Hoja de rollo con las copias acomodadas"></svg></div>
+      <p class="simwarn" id="sim-warn"></p>
+      <p class="simnote">Es una versión simplificada para entender la idea: el script real trabaja con tus diseños, tallas y varias hojas, y su resultado depende de la forma de cada uno. Las medidas del simulador son ilustrativas.</p>
+    </div>
+  </div>
+</div></section>
 
 <!-- FUNCIONES -->
 <section class="block" id="funciones"><div class="wrap">
@@ -582,6 +664,239 @@ footer a{color:var(--ink-dim)}
     }, { rootMargin: "-45% 0px -45% 0px" });
     steps.forEach(function (s) { io.observe(s); });
   }
+
+
+  // ======================= SIMULADOR =======================
+  // Mismo enfoque que el script: cada diseño es una máscara de celdas;
+  // "Rectángulos" usa la máscara llena y "Forma real" la silueta.
+  (function () {
+    var CELL = 2;                         // mm por celda
+    var DESIGNS = [
+      { name: "Flecha", w: 100, h: 250, d: function (w, h) { // "<" apuntando a la izquierda, girada 90°: larga
+          return "M0 " + (-h / 2) + " L" + (w / 2) + " " + (h / 2) + " L0 " + (h * .22) + " L" + (-w / 2) + " " + (h / 2) + " Z"; } },
+      { name: "Círculo", w: 90, h: 90, d: function (w) { var r = w / 2; return "M" + (-r) + " 0 A" + r + " " + r + " 0 1 0 " + r + " 0 A" + r + " " + r + " 0 1 0 " + (-r) + " 0 Z"; } },
+      { name: "Letra L", w: 120, h: 140, d: function (w, h) {
+          var x = w / 2, y = h / 2, t = w * .36;
+          return "M" + (-x) + " " + (-y) + " L" + (-x + t) + " " + (-y) + " L" + (-x + t) + " " + (y - t) + " L" + x + " " + (y - t) + " L" + x + " " + y + " L" + (-x) + " " + y + " Z"; } },
+      { name: "Estrella", w: 130, h: 130, d: function (w) {
+          var R = w / 2, r = R * .45, pts = [], i, a;
+          for (i = 0; i < 10; i++) { a = -Math.PI / 2 + i * Math.PI / 5; pts.push((i % 2 ? r : R) * Math.cos(a) + " " + (i % 2 ? r : R) * Math.sin(a)); }
+          return "M" + pts.join(" L") + " Z"; } }
+    ];
+    var ICON = ["M2 17 L18 3 L13 10 L18 17 Z", "M10 2 A8 8 0 1 0 10.01 2 Z", "M3 2 L9 2 L9 11 L17 11 L17 17 L3 17 Z",
+                "M10 1 L12.4 7.2 L19 7.6 L13.9 11.8 L15.6 18 L10 14.5 L4.4 18 L6.1 11.8 L1 7.6 L7.6 7.2 Z"];
+
+    // ---- máscaras ----
+    var cv = document.createElement("canvas"), cx = cv.getContext("2d", { willReadFrequently: true });
+    function maskOf(des) {
+      var W = Math.ceil(des.w / CELL), H = Math.ceil(des.h / CELL), S = 3; // 3 px por celda
+      cv.width = W * S; cv.height = H * S;
+      cx.clearRect(0, 0, cv.width, cv.height);
+      cx.save(); cx.scale(S * 1 / CELL, S * 1 / CELL);
+      cx.translate(W * CELL / 2, H * CELL / 2);
+      cx.fillStyle = "#000"; cx.fill(new Path2D(des.d(des.w, des.h)));
+      cx.restore();
+      var img = cx.getImageData(0, 0, cv.width, cv.height).data, m = new Uint8Array(W * H), x, y, sx, sy;
+      for (y = 0; y < cv.height; y++) for (x = 0; x < cv.width; x++) {
+        if (img[(y * cv.width + x) * 4 + 3] > 8) m[((y / S) | 0) * W + ((x / S) | 0)] = 1;
+      }
+      return { w: W, h: H, d: m };
+    }
+    function fullMask(W, H) { var m = new Uint8Array(W * H); m.fill(1); return { w: W, h: H, d: m }; }
+    function rotate(m, k) { // k veces 90° antihorario
+      var r = m, t, x, y;
+      k = k % 4;
+      while (k > 0) {
+        t = { w: r.h, h: r.w, d: new Uint8Array(r.w * r.h) };
+        for (y = 0; y < r.h; y++) for (x = 0; x < r.w; x++) if (r.d[y * r.w + x]) t.d[(r.w - 1 - x) * t.w + y] = 1;
+        r = t; k -= 1;
+      }
+      return r;
+    }
+    function area(m) { var n = 0, i; for (i = 0; i < m.d.length; i++) n += m.d[i]; return n; }
+
+    // ---- tramos por fila ----
+    function runsOf(m) {
+      var rows = [], x, y, s, r;
+      for (y = 0; y < m.h; y++) {
+        r = []; x = 0;
+        while (x < m.w) {
+          if (m.d[y * m.w + x]) { s = x; while (x < m.w && m.d[y * m.w + x]) x += 1; r.push(s, x - 1); } else x += 1;
+        }
+        rows.push(r);
+      }
+      return rows;
+    }
+    function merge(list) {
+      var pr = [], i, out = [];
+      for (i = 0; i < list.length; i += 2) pr.push([list[i], list[i + 1]]);
+      pr.sort(function (a, b) { return a[0] - b[0]; });
+      for (i = 0; i < pr.length; i++) {
+        if (out.length && pr[i][0] <= out[out.length - 1] + 1) { if (pr[i][1] > out[out.length - 1]) out[out.length - 1] = pr[i][1]; }
+        else out.push(pr[i][0], pr[i][1]);
+      }
+      return out;
+    }
+    function dilate(rows, h, r) { // engorda r celdas en todas direcciones
+      var out = [], j, dy, src, q, l, runs;
+      for (j = -r; j < h + r; j++) {
+        l = [];
+        for (dy = -r; dy <= r; dy++) {
+          src = j - dy;
+          if (src < 0 || src >= h) continue;
+          runs = rows[src];
+          for (q = 0; q < runs.length; q += 2) l.push(runs[q] - r, runs[q + 1] + r);
+        }
+        out.push(merge(l));
+      }
+      return out;
+    }
+    function prepare(mask, r, rotate4) {
+      var rots = [], seen = {}, k, m, key, rows, i, q, len, wide, wrow;
+      for (k = 0; k < (rotate4 ? 4 : 1); k++) {
+        m = rotate(mask, k);
+        key = m.w + "x" + m.h + ":" + m.d.join("");
+        if (seen[key]) continue; seen[key] = true;
+        rows = runsOf(m); wide = 0; wrow = 0;
+        for (i = 0; i < rows.length; i++) for (q = 0; q < rows[i].length; q += 2) {
+          len = rows[i][q + 1] - rows[i][q] + 1; if (len > wide) { wide = len; wrow = i; }
+        }
+        rots.push({ k: k, w: m.w, h: m.h, rows: rows, probe: dilate(rows, m.h, r), oy: -r, wide: wide, wrow: wrow });
+      }
+      return { rots: rots, area: area(mask), w: mask.w, h: mask.h };
+    }
+
+    // ---- hoja ----
+    function Grid(w, h) { this.w = w; this.h = h; this.rows = []; this.free = []; }
+    Grid.prototype.hit = function (row, a, b) {
+      var iv = this.rows[row], lo = 0, hi, mid;
+      if (!iv) return -1;
+      hi = iv.length / 2;
+      while (lo < hi) { mid = (lo + hi) >> 1; if (iv[2 * mid + 1] < a) lo = mid + 1; else hi = mid; }
+      if (lo < iv.length / 2 && iv[2 * lo] <= b) return iv[2 * lo + 1];
+      return -1;
+    };
+    Grid.prototype.add = function (row, a, b) { var iv = this.rows[row] || []; iv.push(a, b); this.rows[row] = merge(iv); this.free[row] = undefined; };
+    Grid.prototype.maxFree = function (row) {
+      var f = this.free[row], iv, best, pos, i;
+      if (f !== undefined) return f;
+      iv = this.rows[row]; best = 0; pos = 0;
+      if (!iv) best = this.w;
+      else { for (i = 0; i < iv.length; i += 2) { if (iv[i] - pos > best) best = iv[i] - pos; pos = iv[i + 1] + 1; } if (this.w - pos > best) best = this.w - pos; }
+      this.free[row] = best; return best;
+    };
+    function fits(g, rot, x, y) {
+      var r, gy, runs, q, a, e;
+      for (r = 0; r < rot.probe.length; r++) {
+        gy = y + rot.oy + r;
+        if (gy < 0 || gy >= g.h) continue;
+        runs = rot.probe[r];
+        for (q = 0; q < runs.length; q += 2) { a = x + runs[q]; e = g.hit(gy, a, x + runs[q + 1]); if (e >= 0) return e + 1 - a; }
+      }
+      return 0;
+    }
+    function findPos(g, rot, y0, maxBottom) {
+      var y, x, j;
+      for (y = y0; y <= g.h - rot.h; y++) {
+        if (maxBottom !== null && y + rot.h >= maxBottom) return null;
+        if (g.maxFree(y + rot.wrow) < rot.wide) continue;
+        x = 0;
+        while (x + rot.w <= g.w) { j = fits(g, rot, x, y); if (!j) return { x: x, y: y }; x += j; }
+      }
+      return null;
+    }
+    function pack(items, gridW, order) {
+      var list = items.slice(0), g = new Grid(gridW, 9000), placed = [], used = 0, starts = {}, i, r, best, pos, bottom, key, rot;
+      list.sort(order === 0 ? function (a, b) { return b.shape.area - a.shape.area || a.id - b.id; }
+                            : function (a, b) { return Math.max(b.shape.w, b.shape.h) - Math.max(a.shape.w, a.shape.h) || a.id - b.id; });
+      for (i = 0; i < list.length; i++) {
+        best = null;
+        for (r = 0; r < list[i].shape.rots.length; r++) {
+          rot = list[i].shape.rots[r];
+          key = list[i].shape.key + "/" + rot.k;
+          pos = findPos(g, rot, starts[key] || 0, best ? best.bottom : null);
+          if (pos) { bottom = pos.y + rot.h; if (!best || bottom < best.bottom) best = { rot: rot, x: pos.x, y: pos.y, bottom: bottom, key: key }; }
+        }
+        if (!best) return null;
+        starts[best.key] = best.y;
+        (function (rows, rot, x, y) {
+          var j, q;
+          for (j = 0; j < rows.length; j++) for (q = 0; q < rows[j].length; q += 2) g.add(y + j, x + rows[j][q], x + rows[j][q + 1]);
+        })(best.rot.rows, best.rot, best.x, best.y);
+        placed.push({ id: list[i].id, x: best.x, y: best.y, k: best.rot.k, w: best.rot.w, h: best.rot.h });
+        if (best.bottom > used) used = best.bottom;
+      }
+      return { placed: placed, used: used };
+    }
+    function solve(mask, n, gridW, r, rot) {
+      var shape = prepare(mask, r, rot), items = [], i, a, b;
+      shape.key = "s";
+      for (i = 0; i < n; i++) items.push({ id: i, shape: shape });
+      a = pack(items, gridW, 0); b = pack(items, gridW, 1);
+      if (!a) return b; if (!b) return a;
+      return b.used < a.used ? b : a;
+    }
+
+    // ---- interfaz ----
+    var $ = function (id) { return document.getElementById(id); };
+    var design = 0, timer = null, masks = [];
+    var chips = $("sim-design");
+    DESIGNS.forEach(function (d, i) {
+      chips.insertAdjacentHTML("beforeend",
+        '<input type="radio" name="d" id="d' + i + '" value="' + i + '"' + (i === 0 ? " checked" : "") + '>' +
+        '<label for="d' + i + '"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="' + ICON[i] + '" fill="currentColor"/></svg>' + d.name + '</label>');
+      masks.push(null);
+    });
+    function maskFor(i) { if (!masks[i]) masks[i] = maskOf(DESIGNS[i]); return masks[i]; }
+
+    var svg = $("sim-sheet"), NSV = "http://www.w3.org/2000/svg";
+    function run() {
+      var d = DESIGNS[design], n = +$("sim-n").value, wcm = +$("sim-w").value, gmm = +$("sim-g").value;
+      var rot = $("sim-rot").checked, wantShape = $("m-shape").checked, halo = $("sim-halo").checked;
+      $("o-n").textContent = n; $("o-w").textContent = wcm + " cm"; $("o-g").textContent = gmm + " mm";
+      var margin = gmm, gridW = Math.floor((wcm * 10 - 2 * margin) / CELL), r = Math.max(1, Math.ceil(gmm / CELL));
+      var sm = maskFor(design), fm = fullMask(sm.w, sm.h), warn = $("sim-warn");
+      warn.textContent = "";
+      // ¿cabe una pieza?
+      var fitsOne = (sm.w <= gridW && sm.h <= gridW * 1000) || (rot && sm.h <= gridW);
+      if (sm.w > gridW && !(rot && sm.h <= gridW)) {
+        warn.textContent = "El diseño no cabe en ese ancho de rollo. Aumenta el ancho o permite los giros.";
+        svg.innerHTML = ""; ["r-len", "r-use", "r-save"].forEach(function (k) { $(k).textContent = "—"; });
+        return;
+      }
+      var res = solve(wantShape ? sm : fm, n, gridW, r, rot);
+      var base = wantShape ? solve(fm, n, gridW, r, rot) : res;
+      if (!res || !base) { warn.textContent = "No se pudo acomodar con esos valores."; return; }
+      var lenMm = res.used * CELL + 2 * margin, widMm = wcm * 10;
+      var cells = n * area(sm);
+      $("r-len").innerHTML = (lenMm / 10).toFixed(1) + "<small>cm</small>";
+      $("r-use").innerHTML = (cells * CELL * CELL / (lenMm * widMm) * 100).toFixed(0) + "<small>%</small>";
+      var saved = base.used ? (1 - res.used / base.used) * 100 : 0;
+      var rs = $("r-save");
+      rs.className = saved > 0.5 ? "good" : "";
+      rs.innerHTML = wantShape ? (saved > 0.5 ? "−" + saved.toFixed(0) + "<small>% de película</small>" : "0<small>% (sin ahorro)</small>") : "base";
+
+      // dibujo (mm)
+      var h = lenMm, out = '<svg xmlns="' + NSV + '" viewBox="0 0 ' + widMm + " " + h + '"></svg>';
+      var parts = ['<rect class="sh" x="0" y="0" width="' + widMm + '" height="' + h + '"/>'];
+      res.placed.forEach(function (p, i) {
+        var bw = p.w * CELL, bh = p.h * CELL;
+        var cxm = margin + p.x * CELL + bw / 2, cym = margin + p.y * CELL + bh / 2;
+        var path = d.d(d.w, d.h);
+        // la máscara mide ceil(w/CELL)*CELL; centrada igual que el dibujo
+        parts.push('<g class="pc" style="animation-delay:' + Math.min(i * 28, 700) + 'ms" transform="translate(' + cxm + " " + cym + ") rotate(" + (-90 * p.k) + ')">' +
+          (halo ? '<path class="halo" d="' + path + '" stroke-width="' + (gmm) + '"/>' : "") +
+          '<path class="f' + design + '" d="' + path + '"/></g>');
+      });
+      svg.setAttribute("viewBox", "0 0 " + widMm + " " + h);
+      svg.innerHTML = parts.join("");
+    }
+    function schedule() { clearTimeout(timer); timer = setTimeout(run, 120); }
+    ["sim-n", "sim-w", "sim-g", "sim-rot", "sim-halo"].forEach(function (id) { $(id).addEventListener("input", schedule); $(id).addEventListener("change", schedule); });
+    document.querySelectorAll("#sim-method input").forEach(function (e) { e.addEventListener("change", schedule); });
+    chips.addEventListener("change", function (e) { design = +e.target.value; schedule(); });
+    run();
+  })();
 
   // ---------- pestañas (con flechas del teclado) ----------
   var tabs = Array.prototype.slice.call(document.querySelectorAll(".tabs button"));
