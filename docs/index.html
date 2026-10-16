@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AutoSort Gangsheet DTF — script para Adobe Illustrator</title>
+<meta name="description" content="Script gratuito para Adobe Illustrator que acomoda diseños en gangsheets DTF: aprovecha el espacio, respeta la separación de corte, etiqueta tallas y exporta PNG.">
+<style>
+:root{
+  --bg:#ffffff;--bg2:#f5f6f8;--fg:#14171c;--muted:#5b6472;--line:#e3e6ea;
+  --brand:#e8590c;--brand-d:#c2410c;--brand-fg:#fff;--code:#f0f2f5;--ok:#0b7a43;
+}
+@media (prefers-color-scheme:dark){
+  :root{--bg:#0f1216;--bg2:#171b21;--fg:#eef0f3;--muted:#9aa3b0;--line:#272c34;
+    --brand:#ff7a2f;--brand-d:#ff9a5c;--brand-fg:#111;--code:#1d222a;--ok:#4cc38a}
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--fg)}
+a{color:var(--brand-d)}
+.wrap{max-width:1040px;margin:0 auto;padding:0 20px}
+header.nav{position:sticky;top:0;z-index:10;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.nav .wrap{display:flex;align-items:center;gap:20px;height:58px}
+.logo{font-weight:800;letter-spacing:-.02em;color:var(--fg);text-decoration:none}
+.logo span{color:var(--brand)}
+.nav nav{margin-left:auto;display:flex;gap:18px;font-size:14px}
+.nav nav a{color:var(--muted);text-decoration:none}
+.nav nav a:hover{color:var(--fg)}
+.btn{display:inline-block;background:var(--brand);color:var(--brand-fg);font-weight:700;padding:12px 22px;border-radius:10px;text-decoration:none;border:0}
+.btn:hover{background:var(--brand-d);color:var(--brand-fg)}
+.btn.ghost{background:transparent;color:var(--fg);border:1px solid var(--line)}
+.btn.ghost:hover{background:var(--bg2);color:var(--fg)}
+.hero{padding:72px 0 56px}
+.hero h1{font-size:clamp(2rem,5vw,3.4rem);line-height:1.1;letter-spacing:-.03em;margin:0 0 16px}
+.hero h1 em{font-style:normal;color:var(--brand)}
+.hero p.lead{font-size:1.15rem;color:var(--muted);max-width:640px;margin:0 0 28px}
+.cta{display:flex;flex-wrap:wrap;gap:12px}
+.badges{margin-top:22px;display:flex;flex-wrap:wrap;gap:8px;font-size:13px;color:var(--muted)}
+.badges span{border:1px solid var(--line);border-radius:999px;padding:3px 12px;background:var(--bg2)}
+section{padding:56px 0;border-top:1px solid var(--line)}
+section h2{font-size:1.7rem;letter-spacing:-.02em;margin:0 0 8px}
+section>.wrap>p.sub{color:var(--muted);margin:0 0 32px;max-width:680px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+.card{background:var(--bg2);border:1px solid var(--line);border-radius:14px;padding:20px}
+.card h3{margin:0 0 6px;font-size:1.05rem}
+.card p{margin:0;color:var(--muted);font-size:.95rem}
+.steps{counter-reset:s;list-style:none;padding:0;margin:0;display:grid;gap:14px}
+.steps li{counter-increment:s;position:relative;padding:16px 18px 16px 62px;background:var(--bg2);border:1px solid var(--line);border-radius:14px}
+.steps li::before{content:counter(s);position:absolute;left:18px;top:14px;width:30px;height:30px;border-radius:50%;background:var(--brand);color:var(--brand-fg);font-weight:800;display:grid;place-items:center}
+.steps li b{display:block}
+.compare{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px}
+.compare figure{margin:0;background:var(--bg2);border:1px solid var(--line);border-radius:14px;padding:16px}
+.compare figcaption{margin-top:10px;font-size:.92rem;color:var(--muted)}
+.compare svg{width:100%;height:auto;display:block;border-radius:8px;background:var(--bg)}
+table{width:100%;border-collapse:collapse;font-size:.95rem}
+th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--muted);font-weight:600;font-size:.85rem;text-transform:uppercase;letter-spacing:.04em}
+code,kbd{background:var(--code);padding:2px 6px;border-radius:6px;font-size:.9em}
+pre{background:var(--code);padding:14px 16px;border-radius:10px;overflow:auto;font-size:.9rem}
+details{background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:4px 18px;margin-bottom:10px}
+summary{cursor:pointer;font-weight:600;padding:12px 0}
+details p{margin:0 0 14px;color:var(--muted)}
+.note{border-left:4px solid var(--brand);background:var(--bg2);padding:12px 16px;border-radius:0 10px 10px 0;color:var(--muted);font-size:.95rem;margin-top:18px}
+.dl{display:flex;flex-wrap:wrap;align-items:center;gap:18px;background:var(--bg2);border:1px solid var(--line);border-radius:16px;padding:26px}
+.dl p{margin:0;color:var(--muted)}
+footer{border-top:1px solid var(--line);padding:28px 0;color:var(--muted);font-size:.9rem}
+@media (max-width:640px){.nav nav{display:none}.hero{padding-top:44px}}
+</style>
+</head>
+<body>
+
+<header class="nav"><div class="wrap">
+  <a class="logo" href="#">Auto<span>Sort</span> Gangsheet</a>
+  <nav>
+    <a href="#funciones">Funciones</a><a href="#instalacion">Instalación</a>
+    <a href="#uso">Cómo funciona</a><a href="#opciones">Opciones</a><a href="#faq">Preguntas</a>
+  </nav>
+  <a class="btn" href="download/AutoSort-Gangsheet.jsx" download>Descargar</a>
+</div></header>
+
+<main>
+<div class="wrap hero">
+  <h1>Gangsheets DTF <em>sin desperdiciar película</em></h1>
+  <p class="lead">Script gratuito para Adobe Illustrator que acomoda tus diseños en la hoja con el menor largo posible, deja la separación justa para recortar, etiqueta las tallas y exporta el PNG listo para el RIP.</p>
+  <div class="cta">
+    <a class="btn" href="download/AutoSort-Gangsheet.jsx" download>Descargar el script (.jsx)</a>
+    <a class="btn ghost" href="#instalacion">Cómo instalarlo</a>
+    <a class="btn ghost" href="https://github.com/eguiajosue/auto-sort">Ver en GitHub</a>
+  </div>
+  <div class="badges"><span>Illustrator CC 2018 o posterior</span><span>Windows y macOS</span><span>Un solo archivo</span><span>Sin conexión ni cuentas</span></div>
+</div>
+
+<section id="forma"><div class="wrap">
+  <h2>Del rectángulo a la forma real</h2>
+  <p class="sub">El método <b>Forma real</b> encaja las siluetas: una copia girada 180° entra en el hueco de la otra. Misma pieza, mucha menos película.</p>
+  <div class="compare">
+    <figure>
+      <svg viewBox="0 0 240 220" role="img" aria-label="Dos flechas en rectángulos separados">
+        <rect x="14" y="8" width="212" height="100" rx="3" fill="none" stroke="currentColor" stroke-opacity=".35" stroke-dasharray="4 3"/>
+        <rect x="14" y="112" width="212" height="100" rx="3" fill="none" stroke="currentColor" stroke-opacity=".35" stroke-dasharray="4 3"/>
+        <path d="M30 58 L214 14 L170 58 L214 102 Z" fill="#e8590c"/>
+        <path d="M30 162 L214 118 L170 162 L214 206 Z" fill="#e8590c"/>
+      </svg>
+      <figcaption><b>Rectángulos</b> · rápido, pero deja espacio muerto dentro de cada caja.</figcaption>
+    </figure>
+    <figure>
+      <svg viewBox="0 0 240 220" role="img" aria-label="Dos flechas intercaladas">
+        <rect x="14" y="8" width="212" height="156" rx="3" fill="none" stroke="currentColor" stroke-opacity=".35" stroke-dasharray="4 3"/>
+        <path d="M30 58 L214 14 L170 58 L214 102 Z" fill="#e8590c"/>
+        <path d="M210 114 L26 70 L70 114 L26 158 Z" fill="#e8590c" fill-opacity=".85"/>
+      </svg>
+      <figcaption><b>Forma real</b> · las siluetas se intercalan respetando la separación de corte.</figcaption>
+    </figure>
+  </div>
+  <p class="note">En pruebas con una silueta de flecha de 10 × 25 cm, 20 copias en un rollo de 58 cm pasaron de 102.7 cm a 52.2 cm de largo. El ahorro real depende de la forma de tus diseños.</p>
+</div></section>
+
+<section id="funciones"><div class="wrap">
+  <h2>Qué hace</h2>
+  <p class="sub">Todo lo que un pedido real necesita, dentro de una sola ventana.</p>
+  <div class="grid">
+    <div class="card"><h3>Nunca cambia el tamaño</h3><p>Solo mueve y gira (0°, 90°, 180°, 270°). Cada grupo cuenta como una sola pieza, incluidos los de máscara de recorte.</p></div>
+    <div class="card"><h3>Separación para recortar</h3><p>Distancia configurable entre piezas y al borde (3 mm por defecto), en mm, cm o pulgadas.</p></div>
+    <div class="card"><h3>Rollo o mesa fija</h3><p>Ancho fijo con largo automático (rollo DTF) o dentro de la mesa de trabajo actual.</p></div>
+    <div class="card"><h3>Cantidades y tallas</h3><p>Copias por diseño y varias tallas a la vez (XS–4XL o personalizada) con una etiqueta discreta bajo cada copia.</p></div>
+    <div class="card"><h3>Varias hojas</h3><p>Lo que no cabe continúa en mesas de trabajo nuevas, con un largo máximo por hoja.</p></div>
+    <div class="card"><h3>Revisión previa</h3><p>Avisa de imágenes de baja resolución, vínculos rotos, líneas muy finas y textos sin convertir a contornos.</p></div>
+    <div class="card"><h3>Largo y costo</h3><p>Largo exacto, redondeado o el menor tamaño estándar donde quepa, con costo estimado por metro, cm, pulgada o pie.</p></div>
+    <div class="card"><h3>PNG listo para el RIP</h3><p>Exporta PNG transparente a la resolución que elijas, uno por hoja, con la medida en el nombre.</p></div>
+    <div class="card"><h3>Recuerda tu configuración</h3><p>Guarda tus últimos ajustes y los vuelve a cargar la próxima vez.</p></div>
+  </div>
+</div></section>
+
+<section id="instalacion"><div class="wrap">
+  <h2>Instalación</h2>
+  <p class="sub">Un solo archivo. No necesita instalador ni conexión a internet.</p>
+  <div class="dl">
+    <a class="btn" href="download/AutoSort-Gangsheet.jsx" download>Descargar AutoSort-Gangsheet.jsx</a>
+    <p>Si el navegador lo abre como texto, usa clic derecho → <i>Guardar enlace como…</i></p>
+  </div>
+  <h3 style="margin-top:28px">Opción A · Instalar en el menú de Scripts</h3>
+  <ol class="steps">
+    <li><b>Cierra Illustrator</b>Para que reconozca el archivo nuevo al abrir.</li>
+    <li><b>Copia el archivo a la carpeta de scripts</b>
+      Windows: <code>C:\Program Files\Adobe\Adobe Illustrator &lt;versión&gt;\Presets\&lt;idioma&gt;\Scripts\</code><br>
+      macOS: <code>/Applications/Adobe Illustrator &lt;versión&gt;/Presets.localized/&lt;idioma&gt;/Scripts/</code><br>
+      Puede pedir permisos de administrador.</li>
+    <li><b>Abre Illustrator y ejecútalo</b>Archivo → Secuencias de comandos → <i>AutoSort-Gangsheet</i>.</li>
+  </ol>
+  <h3 style="margin-top:28px">Opción B · Sin instalar</h3>
+  <p>Archivo → Secuencias de comandos → <i>Otra secuencia de comandos…</i> y elige el archivo.</p>
+  <p class="note">Al actualizar a una versión nueva, reemplaza el archivo y <b>reinicia Illustrator</b>: a veces sigue usando la copia que cargó al abrir.</p>
+</div></section>
+
+<section id="uso"><div class="wrap">
+  <h2>Cómo funciona</h2>
+  <p class="sub">De tus diseños sueltos a una hoja lista para imprimir en cuatro pasos.</p>
+  <ol class="steps">
+    <li><b>Prepara los diseños</b>Cada diseño como objeto o grupo en el documento. Selecciona los que quieras acomodar, o ninguno para usar todo lo visible y desbloqueado.</li>
+    <li><b>Abre el script y configura la hoja</b>En la pestaña <i>Acomodo</i> elige rollo (ancho fijo) o mesa de trabajo, la separación para recortar, la rotación y el método (rectángulos o forma real).</li>
+    <li><b>Define cantidades y tallas</b>En <i>Cantidades</i> asigna las copias de cada diseño. Con <i>Tallas por diseño…</i> capturas, por ejemplo, S ×5, M ×10, XL ×3 de una sola vez. Al elegir una fila, la pieza se resalta en el lienzo.</li>
+    <li><b>Acomoda y exporta</b>Pulsa <i>Acomodar</i>. El resumen te dice el tamaño de cada hoja, el aprovechamiento y el costo estimado; si activaste la exportación, también guarda los PNG.</li>
+  </ol>
+  <h3 style="margin-top:32px">Tallas y etiquetas</h3>
+  <p>Cada copia lleva una etiqueta pequeña con su talla, en una capa aparte llamada <code>Etiquetas de talla</code>. La talla también queda en la nota del objeto, así que si vuelves a ejecutar el script cada copia la conserva. Un nombre de objeto que termina en <code>x10</code> (por ejemplo <code>Logo x10</code>) toma 10 copias automáticamente.</p>
+  <p class="note"><b>Ojo:</b> la etiqueta se imprime en la película. Queda separada del diseño para poder recortarla, o puedes ocultar la capa antes de imprimir o exportar.</p>
+  <h3 style="margin-top:32px">Varias hojas</h3>
+  <p>Con <i>Varias hojas</i> activado, lo que no cabe continúa en mesas de trabajo nuevas llamadas <code>Gangsheet - Hoja 2, 3…</code> a la derecha. En modo rollo eliges el largo máximo por hoja y la última se acorta a lo que ocupa. Al volver a ejecutar el script, esas hojas se reemplazan.</p>
+</div></section>
+
+<section id="opciones"><div class="wrap">
+  <h2>Opciones</h2>
+  <p class="sub">La ventana tiene tres pestañas.</p>
+  <h3>Acomodo</h3>
+  <table>
+    <tr><th>Opción</th><th>Descripción</th></tr>
+    <tr><td>Elementos</td><td>Selección actual, o todo lo visible y desbloqueado.</td></tr>
+    <tr><td>Lienzo</td><td>Rollo (ancho fijo, largo automático) o mesa de trabajo actual.</td></tr>
+    <tr><td>Entre elementos / Margen</td><td>Espacio mínimo entre piezas y hasta el borde de la hoja.</td></tr>
+    <tr><td>Rotación</td><td>No rotar, o girar en sentido horario o antihorario.</td></tr>
+    <tr><td>Calidad</td><td>Rápida, Normal o Máxima (prueba más combinaciones; más lenta).</td></tr>
+    <tr><td>Método</td><td><b>Rectángulos</b> (rápido) o <b>Forma real</b> (encaja siluetas).</td></tr>
+    <tr><td>Precisión</td><td>Solo forma real: cuadrícula de 1, 2, 3 o 5 mm. 2 mm es un buen equilibrio.</td></tr>
+    <tr><td>Varias hojas</td><td>Continúa en hojas nuevas; largo máximo por hoja y máximo de hojas.</td></tr>
+  </table>
+  <h3 style="margin-top:28px">Cantidades</h3>
+  <table>
+    <tr><th>Botón</th><th>Qué hace</th></tr>
+    <tr><td>Asignar copias</td><td>Cambia cuántas copias se acomodan (0 = no acomodar).</td></tr>
+    <tr><td>Tallas por diseño…</td><td>Captura copias de XS a 4XL, sin etiqueta y 3 tallas personalizadas para uno o varios diseños.</td></tr>
+    <tr><td>Asignar talla / Agregar talla</td><td>Pone una talla a las filas, o crea otra fila del mismo diseño con otra talla.</td></tr>
+    <tr><td>Quitar fila / Reiniciar lista</td><td>Quita filas o vuelve al estado inicial.</td></tr>
+    <tr><td>Mostrar en el lienzo</td><td>Selecciona y centra la pieza elegida en la lista.</td></tr>
+  </table>
+  <h3 style="margin-top:28px">Salida</h3>
+  <table>
+    <tr><th>Opción</th><th>Descripción</th></tr>
+    <tr><td>Ajustar la mesa de trabajo</td><td>En modo rollo, cambia el largo del artboard al resultado.</td></tr>
+    <tr><td>Largo</td><td>Exacto, redondeado a unidad entera, o tamaño estándar (lista editable).</td></tr>
+    <tr><td>Costo estimado</td><td>Precio por cm, m, in o ft de largo (0 = no calcular).</td></tr>
+    <tr><td>Exportar PNG</td><td>PNG transparente a N ppi, uno por hoja, en la carpeta del documento.</td></tr>
+    <tr><td>Revisión previa</td><td>Resolución mínima (ppi) y grosor mínimo de línea.</td></tr>
+  </table>
+</div></section>
+
+<section id="faq"><div class="wrap">
+  <h2>Preguntas frecuentes</h2>
+  <p class="sub">&nbsp;</p>
+  <details><summary>¿Cambia el tamaño de mis diseños?</summary><p>No. Solo cambia su posición y los gira en múltiplos de 90°. Las copias son duplicados a su tamaño original.</p></details>
+  <details><summary>¿Cómo trata los grupos?</summary><p>Como una sola pieza. En grupos con máscara de recorte se mide la forma de la máscara, no el arte que queda oculto. Si seleccionas algo dentro de un grupo, se acomoda el grupo completo.</p></details>
+  <details><summary>¿Cuándo conviene «Forma real» y cuándo «Rectángulos»?</summary><p>Forma real ahorra más película con diseños irregulares (flechas, logos con huecos, textos curvos), pero tarda más. Para diseños casi rectangulares, Rectángulos es más rápido y rinde igual.</p></details>
+  <details><summary>Forma real tarda mucho, ¿qué hago?</summary><p>Sube la precisión a 3 o 5 mm, usa calidad Rápida, o acomoda por tandas con la opción Varias hojas.</p></details>
+  <details><summary>Dice «sin silueta legible».</summary><p>El script no pudo capturar la silueta de ese diseño y usó su rectángulo. El resultado sigue siendo correcto, solo sin el ahorro de forma real para ese diseño.</p></details>
+  <details><summary>¿Hay un límite de tamaño?</summary><p>Sí. El lienzo de Illustrator mide unos 577 × 577 cm y ninguna mesa de trabajo puede salirse de él. Si la hoja no cabe, el script sube la mesa de trabajo o te sugiere activar Varias hojas, sin modificar nada.</p></details>
+  <details><summary>La etiqueta de talla se imprime, ¿cómo evito eso?</summary><p>Oculta la capa «Etiquetas de talla» antes de imprimir o exportar, o recórtala: queda separada del diseño.</p></details>
+  <details><summary>Aparece un error al ejecutarlo.</summary><p>Confirma que tienes la versión más reciente, reemplaza el archivo y reinicia Illustrator. Si persiste, abre un <a href="https://github.com/eguiajosue/auto-sort/issues">issue en GitHub</a> con una captura que muestre el número de línea.</p></details>
+</div></section>
+</main>
+
+<footer><div class="wrap">
+  AutoSort Gangsheet DTF · <a href="https://github.com/eguiajosue/auto-sort">Código en GitHub</a> ·
+  <a href="https://github.com/eguiajosue/auto-sort/issues">Reportar un problema</a>
+</div></footer>
+</body>
+</html>
