@@ -1,161 +1,181 @@
-# AutoSort Gangsheet DTF (Adobe Illustrator)
+<div align="center">
 
-Script para Illustrator que acomoda automáticamente varios diseños en una hoja
-para **gangsheets DTF**, aprovechando al máximo el espacio y dejando una
-separación entre piezas para poder recortarlas.
+# AutoSort Gangsheet DTF
 
-## Qué hace
+**Script gratuito para Adobe Illustrator que arma gangsheets DTF sin desperdiciar película.**
 
-- **No cambia el tamaño** de ningún elemento: solo los **mueve** y, si lo permites,
-  los **gira** (0° / 90° / 180° / 270°).
-- **Los grupos se tratan como una sola pieza**, incluidos los grupos con máscara
-  de recorte (se mide la forma de la máscara, no el arte oculto). Si seleccionas
-  algo dentro de un grupo, se acomoda el grupo completo.
-- Dos modos de lienzo:
-  - **Ancho fijo, largo automático (rollo DTF)**: indicas el ancho (p. ej. 58 cm
-    o 22 in) y el script busca el **largo mínimo**. Opcionalmente ajusta la mesa de
-    trabajo al resultado y redondea el largo hacia arriba a unidad entera.
-  - **Mesa de trabajo actual**: acomoda dentro del artboard activo. Lo que no
-    quepa se coloca a la derecha de la mesa de trabajo y queda seleccionado.
-- Separación entre elementos y margen al borde configurables (por defecto **3 mm**),
-  en mm, cm o in.
-- **Acomodo por forma real (nesting)**: además del acomodo por rectángulos,
-  puede encajar las **siluetas** de los diseños (p. ej. una copia girada 180° que
-  entra en el hueco de otra), respetando la separación de corte medida sobre la
-  silueta. Funciona con vectores, imágenes con transparencia, textos y grupos.
-- **Varias hojas**: si no cabe todo, continúa en mesas de trabajo nuevas
-  (*Gangsheet - Hoja 2, 3…*) a la derecha. En modo rollo eliges el largo máximo
-  por hoja y la última se acorta al mínimo; en modo mesa de trabajo cada hoja nueva
-  tiene el tamaño de la actual.
-- **Cantidades por diseño y tallas**: cada diseño puede tener varias filas
-  (p. ej. *Logo · S ×5*, *Logo · M ×10*). Cada copia lleva una **etiqueta
-  discreta** con su talla (XS, S, M, L, XL, 2XL, 3XL, 4XL o texto personalizado)
-  debajo del diseño; su espacio se reserva al acomodar.
-- **Revisión previa (preflight)**: avisa de imágenes con baja resolución a su
-  tamaño real, vínculos rotos, líneas muy finas, textos pequeños y textos sin
-  convertir a contornos.
-- **Largo de la hoja**: exacto, redondeado a unidad entera o el **menor tamaño
-  estándar** donde quepa (lista editable).
-- **Costo estimado** según tu precio por cm, m, in o ft de largo.
-- **Exportar PNG transparente** a la resolución elegida (300 ppi por defecto), en
-  la carpeta del documento, con la medida en el nombre del archivo.
-- Recuerda la última configuración usada.
+Acomoda tus diseños con el menor largo posible, deja la separación justa para recortar,
+etiqueta las tallas y exporta el PNG listo para el RIP.
+
+[**Descargar**](https://eguiajosue.github.io/auto-sort/download/AutoSort-Gangsheet.jsx) ·
+[**Sitio web y guía**](https://eguiajosue.github.io/auto-sort/) ·
+[Reportar un problema](https://github.com/eguiajosue/auto-sort/issues)
+
+![Illustrator](https://img.shields.io/badge/Adobe%20Illustrator-CC%202018%2B-FF9A00?logo=adobeillustrator&logoColor=white)
+![Plataformas](https://img.shields.io/badge/Windows%20%7C%20macOS-supported-444)
+![Formato](https://img.shields.io/badge/formato-.jsx%20(ExtendScript)-blue)
+
+</div>
+
+---
+
+## Contenido
+
+- [Por qué AutoSort](#por-qué-autosort)
+- [Funciones](#funciones)
+- [Instalación](#instalación)
+- [Cómo se usa](#cómo-se-usa)
+- [Opciones](#opciones)
+- [Método: rectángulos vs. forma real](#método-rectángulos-vs-forma-real)
+- [Límites y notas](#límites-y-notas)
+- [Preguntas frecuentes](#preguntas-frecuentes)
+- [Desarrollo](#desarrollo)
+
+## Por qué AutoSort
+
+Armar un gangsheet a mano es lento y desperdicia película. AutoSort hace tres cosas:
+
+1. **Nunca modifica el tamaño** de tus diseños: solo cambia su posición y los gira (0°, 90°, 180°, 270°).
+2. **Respeta la separación de corte** entre piezas, para poder recortarlas.
+3. **Minimiza el largo de la hoja** (o llena la mesa de trabajo que ya tienes).
+
+## Funciones
+
+| | |
+|---|---|
+| **Grupos como una sola pieza** | Incluidos los grupos con máscara de recorte: se mide la forma de la máscara, no el arte oculto. |
+| **Rollo o mesa de trabajo** | Ancho fijo con largo automático (rollo DTF), o dentro del artboard actual. |
+| **Forma real (nesting)** | Encaja siluetas: una copia girada 180° entra en el hueco de otra. |
+| **Cantidades y tallas** | Copias por diseño y varias tallas a la vez (XS–4XL o personalizada), con etiqueta discreta. |
+| **Varias hojas** | Lo que no cabe continúa en mesas de trabajo nuevas. |
+| **Revisión previa** | Baja resolución, vínculos rotos, líneas muy finas y textos sin convertir a contornos. |
+| **Largo y costo** | Largo exacto, redondeado o tamaño estándar; costo estimado por cm, m, in o ft. |
+| **PNG para el RIP** | PNG transparente a la resolución que elijas, uno por hoja. |
 
 ## Instalación
 
-1. Copia `AutoSort-Gangsheet.jsx` a la carpeta de scripts de Illustrator:
-   - **Windows**: `C:\Program Files\Adobe\Adobe Illustrator <versión>\Presets\<idioma>\Scripts\`
-   - **macOS**: `/Applications/Adobe Illustrator <versión>/Presets.localized/<idioma>/Scripts/`
-2. Reinicia Illustrator.
-3. Ejecuta **Archivo > Secuencias de comandos > AutoSort-Gangsheet**.
+1. [Descarga `AutoSort-Gangsheet.jsx`](https://eguiajosue.github.io/auto-sort/download/AutoSort-Gangsheet.jsx) (o cópialo de este repositorio).
+2. **Cierra Illustrator** y copia el archivo a la carpeta de scripts:
+   - **Windows:** `C:\Program Files\Adobe\Adobe Illustrator <versión>\Presets\<idioma>\Scripts\`
+   - **macOS:** `/Applications/Adobe Illustrator <versión>/Presets.localized/<idioma>/Scripts/`
+3. Abre Illustrator y ve a **Archivo → Secuencias de comandos → AutoSort-Gangsheet**.
 
-Sin instalar: **Archivo > Secuencias de comandos > Otra secuencia de comandos…** y
-elige el archivo. Puedes asignarle un atajo de teclado con una Acción.
+> **Sin instalar:** Archivo → Secuencias de comandos → *Otra secuencia de comandos…* y elige el archivo.
+>
+> **Al actualizar:** reemplaza el archivo y **reinicia Illustrator**; a veces sigue usando la copia que cargó al abrir.
 
-## Uso
+## Cómo se usa
 
-1. Abre el documento con tus diseños (cada diseño como objeto o grupo).
-2. Selecciona las piezas a acomodar (o ninguna, y elige “Todo lo visible y desbloqueado”).
-3. Ejecuta el script, ajusta las opciones y pulsa **Acomodar**.
+1. Ten cada diseño como objeto o grupo en el documento. Selecciona los que quieras acomodar (o ninguno, para usar todo lo visible y desbloqueado).
+2. Ejecuta el script. En **Acomodo** elige rollo o mesa de trabajo, la separación y el método.
+3. En **Cantidades** asigna copias y tallas. Al elegir una fila, la pieza se resalta en el lienzo.
+4. Pulsa **Acomodar**. El resumen indica el tamaño de cada hoja, el aprovechamiento y el costo estimado.
 
-La ventana tiene tres pestañas:
+### Tallas y etiquetas
 
-**Acomodo**
+Cada copia lleva una etiqueta pequeña con su talla, en la capa **`Etiquetas de talla`**. La talla también se guarda en la nota del objeto, así que al volver a ejecutar el script cada copia la conserva. Un nombre que termina en `x10` (por ejemplo `Logo x10`) toma 10 copias automáticamente.
 
-| Opción | Descripción |
-| --- | --- |
-| Elementos | Selección actual, o todo lo visible y desbloqueado del documento. |
-| Lienzo | Rollo (ancho fijo) o mesa de trabajo actual. |
-| Entre elementos | Espacio mínimo entre piezas (para recortar). |
-| Margen al borde | Espacio entre las piezas y el borde de la hoja. |
-| Rotación | No rotar, o permitir giros; el sentido del giro (horario/antihorario) es elegible. |
-| Calidad | Rápida / Normal / Máxima. Más calidad = prueba más combinaciones (más lento). |
-| Método | **Rectángulos** (rápido) o **Forma real** (encaja siluetas; más lento). |
-| Precisión | Solo forma real: tamaño de la cuadrícula (1, 2, 3 o 5 mm). 2 mm es un buen equilibrio. |
-| Varias hojas | Continúa en hojas nuevas si no cabe todo; largo máximo por hoja (rollo) y máximo de hojas. |
+> La etiqueta **se imprime en la película**. Queda separada del diseño para recortarla, o puedes ocultar la capa antes de imprimir o exportar.
 
-**Cantidades**
+### Varias hojas
 
-Lista de diseños con columnas *Pieza · Tamaño · Talla · Copias*. Selecciona una o
-varias filas y:
+Con **Varias hojas** activado, lo que no cabe continúa en mesas de trabajo `Gangsheet - Hoja 2, 3…` a la derecha. En modo rollo eliges el largo máximo por hoja y la última se acorta a lo que ocupa. Al volver a ejecutar el script, esas hojas se reemplazan.
 
-- **Tallas por diseño…**: abre una ventana con XS, S, M, L, XL, 2XL, 3XL, 4XL,
-  “sin etiqueta” y 3 tallas personalizadas; escribe cuántas copias de cada una y
-  se crean todas las filas de ese diseño de una vez (también sirve con varios
-  diseños seleccionados).
-- **Asignar copias**: cambia cuántas copias se acomodan (0 = no acomodar).
-- **Asignar talla**: pone la etiqueta elegida a las filas seleccionadas.
-- **Agregar talla**: crea otra fila del mismo diseño con la talla y copias indicadas
-  (así un diseño puede ir en S, M, L... a la vez).
-- **Quitar fila** / **Reiniciar lista**.
+## Opciones
 
-Con **“Mostrar en el lienzo la pieza seleccionada”** activado, al elegir una fila
-de la lista se selecciona y centra esa pieza en el documento para identificarla.
-Si cancelas, se restaura tu selección original.
-
-Si el nombre de un objeto o grupo (panel Capas) termina en `x10`, toma 10 copias
-automáticamente. La etiqueta usa Arial negro; su tamaño de letra (7 pt por
-defecto) y separación del diseño (1.5 mm) son configurables. Las etiquetas se
-crean en la capa **“Etiquetas de talla”**: ocúltala si no quieres imprimirlas.
-La talla también se guarda en la nota (*Atributos*) de cada copia, así que si
-vuelves a ejecutar el script las copias conservan su talla; las etiquetas
-anteriores de esa mesa de trabajo se reemplazan.
-
-> Importante: la etiqueta se imprime en la película. Al estar separada del diseño
-> puedes recortarla, o ocultar la capa antes de imprimir/exportar.
-
-**Salida**
+<details open>
+<summary><b>Acomodo</b></summary>
 
 | Opción | Descripción |
 | --- | --- |
-| Ajustar la mesa de trabajo | Modo rollo: cambia el largo del artboard al resultado. |
-| Largo | Exacto, redondeado a unidad entera o tamaño estándar (lista separada por `;`). |
+| Elementos | Selección actual, o todo lo visible y desbloqueado. |
+| Lienzo | Rollo (ancho fijo, largo automático) o mesa de trabajo actual. |
+| Entre elementos / Margen | Espacio mínimo entre piezas y hasta el borde (3 mm por defecto). |
+| Rotación | No rotar, o girar en sentido horario o antihorario. |
+| Calidad | Rápida, Normal o Máxima (más combinaciones, más lenta). |
+| Método | Rectángulos (rápido) o Forma real (encaja siluetas). |
+| Precisión | Solo forma real: cuadrícula de 1, 2, 3 o 5 mm. |
+| Varias hojas | Continúa en hojas nuevas; largo máximo por hoja y máximo de hojas. |
+
+</details>
+
+<details>
+<summary><b>Cantidades</b></summary>
+
+| Botón | Qué hace |
+| --- | --- |
+| Asignar copias | Cambia cuántas copias se acomodan (0 = no acomodar). |
+| Tallas por diseño… | XS, S, M, L, XL, 2XL, 3XL, 4XL, sin etiqueta y 3 personalizadas, para uno o varios diseños. |
+| Asignar talla / Agregar talla | Pone una talla a las filas, o crea otra fila del mismo diseño. |
+| Quitar fila / Reiniciar lista | Quita filas o vuelve al estado inicial. |
+| Mostrar en el lienzo | Selecciona y centra la pieza elegida. |
+
+</details>
+
+<details>
+<summary><b>Salida</b></summary>
+
+| Opción | Descripción |
+| --- | --- |
+| Ajustar la mesa de trabajo | En modo rollo, cambia el largo del artboard al resultado. |
+| Largo | Exacto, redondeado a unidad entera, o tamaño estándar (lista editable). |
 | Costo estimado | Precio por cm, m, in o ft de largo (0 = no calcular). |
-| Exportar PNG | PNG transparente a N ppi en la carpeta del documento. |
-| Revisión (preflight) | Resolución mínima (ppi) y grosor mínimo de línea. |
+| Exportar PNG | PNG transparente a N ppi (300 por defecto), uno por hoja, en la carpeta del documento. |
+| Revisión previa | Resolución mínima (ppi) y grosor mínimo de línea. |
 
-## Notas
+</details>
 
-- **Rectángulos**: cada pieza ocupa su rectángulo envolvente. Ahí 180° ocupa lo
-  mismo que 0°, así que solo gira 90° (en el sentido elegido) cuando ahorra espacio.
-- **Forma real**: para cada diseño se captura una imagen pequeña con transparencia
-  (en un documento temporal que se cierra solo) y se convierte en una cuadrícula de
-  celdas ocupadas. Una celda cuenta como ocupada si *cualquier* parte del diseño la
-  toca, así que la silueta siempre es un poco más grande que el arte (nunca más
-  chica) y la separación real es igual o mayor a la indicada. Prueba 0°, 90°, 180° y
-  270° (si la rotación está permitida) y coloca cada copia lo más arriba posible.
-  Si no se puede leer la silueta de un diseño, se usa su rectángulo y se avisa.
-  Con la precisión de 1 mm el cálculo es notablemente más lento.
+## Método: rectángulos vs. forma real
+
+- **Rectángulos:** cada pieza ocupa su rectángulo envolvente. Es rápido. Aquí 180° ocupa lo mismo que 0°, así que solo gira 90° cuando ahorra espacio.
+- **Forma real:** captura la silueta de cada diseño (en un documento temporal que se cierra solo), la convierte en una cuadrícula y coloca cada copia lo más arriba posible probando 0°, 90°, 180° y 270°. Una celda cuenta como ocupada si *cualquier* parte del diseño la toca, así que la silueta nunca es más chica que el arte y la separación real es igual o mayor a la indicada. Si no puede leer la silueta de un diseño, usa su rectángulo y lo avisa.
+
+En pruebas con una silueta de flecha de 10 × 25 cm, 20 copias en un rollo de 58 cm pasaron de **102.7 cm a 52.2 cm** de largo. El ahorro real depende de la forma de tus diseños, y con precisión de 1 mm el cálculo es notablemente más lento.
+
+## Límites y notas
+
+- El lienzo de Illustrator mide ~577 × 577 cm y ninguna mesa de trabajo puede salirse de él. Si la hoja no cabe hacia abajo, el script sube la mesa de trabajo; si es más larga que el lienzo, avisa (sin modificar nada) y sugiere **Varias hojas**.
 - Se usan los **límites visibles** (incluyen el grosor del trazo).
-- Los objetos bloqueados, ocultos o en capas bloqueadas/ocultas se ignoran. En modo
-  “Selección”, el resto de objetos del documento no se toma en cuenta, así que
-  podrían quedar encimados con el resultado.
-- El lienzo de Illustrator mide ~577 × 577 cm y ninguna mesa de trabajo puede
-  salirse de él. Si la hoja no cabe hacia abajo, el script sube la mesa de trabajo;
-  si es más larga que el lienzo, avisa (sin modificar nada) y sugiere activar
-  **Varias hojas**. Las hojas que ya no quepan en el lienzo se descartan y se avisa.
-- Con **Varias hojas**, al volver a ejecutar el script se eliminan las hojas
-  *Gangsheet - Hoja N* creadas antes (y sus etiquetas) para generarlas de nuevo.
-- Se exporta un PNG por hoja (`_hoja1`, `_hoja2`…).
-- Exportar PNG usa *Exportar para pantallas* (Illustrator CC 2018+), y en versiones
-  anteriores *imageCapture*. Hojas muy largas a 300 ppi generan imágenes enormes
-  (58 × 500 cm ≈ 6850 × 59000 px) y pueden tardar o fallar por memoria.
-- La resolución efectiva se calcula para imágenes incrustadas y vinculadas
-  (PNG, JPG, TIFF, PSD…) según su escala en el documento.
-- Con cientos de piezas, la calidad “Máxima” puede tardar varios segundos o más
-  (hay barra de progreso).
+- Se ignoran objetos bloqueados, ocultos o en capas bloqueadas/ocultas. En modo *Selección*, el resto del documento no se toma en cuenta.
+- Exportar PNG usa *Exportar para pantallas* (CC 2018+) y, en versiones anteriores, *imageCapture*. Hojas muy largas a 300 ppi generan imágenes enormes (58 × 500 cm ≈ 6850 × 59000 px) y pueden fallar por memoria.
+
+## Preguntas frecuentes
+
+<details>
+<summary><b>Dice «sin silueta legible»</b></summary>
+
+El script no pudo capturar la silueta de ese diseño y usó su rectángulo. El resultado sigue siendo correcto, solo sin el ahorro de forma real para ese diseño.
+
+</details>
+
+<details>
+<summary><b>Forma real tarda mucho</b></summary>
+
+Sube la precisión a 3 o 5 mm, usa calidad Rápida, o acomoda por tandas con **Varias hojas**.
+
+</details>
+
+<details>
+<summary><b>Aparece un error al ejecutarlo</b></summary>
+
+Confirma que tienes la versión más reciente, reemplaza el archivo y reinicia Illustrator. Si persiste, abre un [issue](https://github.com/eguiajosue/auto-sort/issues) con una captura que muestre el número de línea.
+
+</details>
 
 ## Desarrollo
 
-El motor de acomodo (algoritmo MaxRects con varias heurísticas y órdenes, más
-búsqueda binaria del largo mínimo) está entre los marcadores `PACKER START` /
-`PACKER END` del `.jsx`, y las utilidades puras entre `UTILS START` / `UTILS END`;
-ninguno depende de Illustrator. Las pruebas lo ejecutan en Node:
+El proyecto es un único archivo `AutoSort-Gangsheet.jsx` (ExtendScript, sintaxis ES3). El motor de acomodo por rectángulos (`PACKER`), las utilidades (`UTILS`) y el acomodo por forma (`NEST`) no dependen de Illustrator y se prueban en Node:
 
 ```sh
 npm test
 ```
 
-`test/integration.test.js` ejecuta el script completo contra una simulación del
-DOM de Illustrator y de ScriptUI (`test/illustrator-mock.js`), incluidos los
-límites del lienzo, para probar diálogos, copias, tallas y varias hojas.
+| Prueba | Qué verifica |
+| --- | --- |
+| `extendscript-lint` | Rechaza construcciones que ExtendScript interpreta mal (p. ej. `++`/`--` sobre propiedades). |
+| `packer` | Acomodo por rectángulos: sin solapes, separación, tamaños intactos, varias hojas. |
+| `nest` | Decodificador PNG/zlib, máscaras, núcleo de separación y acomodo por forma. |
+| `integration` | El script completo contra una simulación de Illustrator y ScriptUI. |
+| `docs-sync` | La copia descargable del sitio coincide con el script. |
+
+La web (`docs/`) se publica con GitHub Pages. Tras cambiar el script, copia el archivo con `npm run sync-docs`.
