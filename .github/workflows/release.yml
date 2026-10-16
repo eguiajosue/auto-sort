@@ -1,9 +1,16 @@
-# Crea un release con el script descargable al publicar una etiqueta vX.Y.Z.
+# Crea un release con el script descargable. Se dispara al publicar una
+# etiqueta vX.Y.Z, o a mano desde la pestaña Actions indicando la versión
+# (en ese caso el release crea la etiqueta sobre main).
 name: Release
 
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Versión (por ejemplo v1.0.0)"
+        required: true
 
 permissions:
   contents: write
@@ -21,19 +28,27 @@ jobs:
       - name: Pruebas
         run: npm test
 
+      - name: Versión
+        env:
+          V: ${{ github.event.inputs.version || github.ref_name }}
+        run: |
+          if ! echo "$V" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then echo "Versión inválida: $V"; exit 1; fi
+          echo "VERSION=$V" >> "$GITHUB_ENV"
+
       - name: Preparar archivos
         run: |
           mkdir dist
           cp AutoSort-Gangsheet.jsx dist/
           cp README.md LICENSE dist/
-          (cd dist && zip -q "AutoSort-Gangsheet-${GITHUB_REF_NAME}.zip" AutoSort-Gangsheet.jsx README.md LICENSE)
+          (cd dist && zip -q "AutoSort-Gangsheet-${VERSION}.zip" AutoSort-Gangsheet.jsx README.md LICENSE)
 
       - name: Crear release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" \
-            --title "AutoSort Gangsheet DTF $GITHUB_REF_NAME" \
+          gh release create "$VERSION" \
+            --title "AutoSort Gangsheet DTF $VERSION" \
+            --target "$GITHUB_SHA" \
             --notes-file .github/release-notes.md \
             dist/AutoSort-Gangsheet.jsx \
-            "dist/AutoSort-Gangsheet-${GITHUB_REF_NAME}.zip"
+            "dist/AutoSort-Gangsheet-${VERSION}.zip"
